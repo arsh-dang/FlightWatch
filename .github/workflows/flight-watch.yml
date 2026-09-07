@@ -28,11 +28,6 @@ jobs:
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          HOME_AIRPORT: ${{ secrets.HOME_AIRPORT }}
-          AWAY_AIRPORT: ${{ secrets.AWAY_AIRPORT }}
-          TIMEZONE: ${{ secrets.TIMEZONE }}
-          DEPART_AHEAD: ${{ secrets.DEPART_AHEAD }}
-          MAX_NIGHTS: ${{ secrets.MAX_NIGHTS }}
         run: |
           python3 spontaneous_watch.py
 

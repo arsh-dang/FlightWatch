@@ -25,14 +25,18 @@ import requests
 
 # ---------------------------------------------------------------- config
 
-HOME = os.environ.get("HOME_AIRPORT", "AVV")
-AWAY = os.environ.get("AWAY_AIRPORT", "SYD")
-TZ = ZoneInfo(os.environ.get("TIMEZONE", "Australia/Melbourne"))
+HOME = os.environ.get("HOME_AIRPORT") or "AVV"
+AWAY = os.environ.get("AWAY_AIRPORT") or "SYD"
+_tz_env = (os.environ.get("TIMEZONE") or "").strip()
+if _tz_env:
+    TZ = ZoneInfo(_tz_env)
+else:
+    TZ = ZoneInfo("Australia/Melbourne")
 
 # How far ahead to consider leaving. 0 = today only, 1 = today or tomorrow.
-DEPART_AHEAD = int(os.environ.get("DEPART_AHEAD", "1"))
+DEPART_AHEAD = int(os.environ.get("DEPART_AHEAD") or "1")
 # How many nights away you'd accept, counted from the departure day.
-MAX_NIGHTS = int(os.environ.get("MAX_NIGHTS", "2"))
+MAX_NIGHTS = int(os.environ.get("MAX_NIGHTS") or "2")
 # Skip departures leaving sooner than this.
 MIN_LEAD_HOURS = float(os.environ.get("MIN_LEAD_HOURS", "1"))
 
