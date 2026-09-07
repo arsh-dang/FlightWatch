@@ -23,6 +23,12 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # ---------------------------------------------------------------- config
 
 HOME = os.environ.get("HOME_AIRPORT") or "AVV"
