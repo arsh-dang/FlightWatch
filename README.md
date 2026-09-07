@@ -32,6 +32,17 @@ In the repo: Settings, then Secrets and variables, then Actions.
 - `SERPAPI_KEY` — your key
 - `NTFY_TOPIC` — your topic name
 
+**Optional: local .env file**
+
+If you want to run `spontaneous_watch.py` locally, copy `.env.example` to a file named `.env` and fill in your `SERPAPI_KEY` and `NTFY_TOPIC`. Do not commit your `.env` file to the repository.
+
+Example:
+
+```bash
+cp .env.example .env
+# edit .env and add your keys
+```
+
 **5. Set your dates**
 
 Edit `OUT_DATE` and `BACK_DATE` in `.github/workflows/flight-watch.yml`.

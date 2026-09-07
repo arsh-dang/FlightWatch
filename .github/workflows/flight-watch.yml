@@ -1,0 +1,49 @@
+name: Flight watch
+
+on:
+  schedule:
+    # Twice daily (UTC). Adjust cron as you prefer.
+    - cron: '0 6,18 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  run-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install requests
+
+      - name: Run flight watch
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          HOME_AIRPORT: ${{ secrets.HOME_AIRPORT }}
+          AWAY_AIRPORT: ${{ secrets.AWAY_AIRPORT }}
+          TIMEZONE: ${{ secrets.TIMEZONE }}
+          DEPART_AHEAD: ${{ secrets.DEPART_AHEAD }}
+          MAX_NIGHTS: ${{ secrets.MAX_NIGHTS }}
+        run: |
+          python3 spontaneous_watch.py
+
+      - name: Commit state.json if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json || true
+          if ! git diff --staged --quiet; then
+            git commit -m "Update state.json" || true
+            git push
+          else
+            echo "No state change"
+          fi
