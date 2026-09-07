@@ -1,0 +1,44 @@
+name: Spontaneous trip watch
+
+on:
+  schedule:
+    # 07:00 Melbourne time. One run a day fits the free API tier.
+    # Add "0 6 * * *" for a second afternoon check if you upgrade.
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Price today and tomorrow
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          HOME_AIRPORT: "AVV"
+          AWAY_AIRPORT: "SYD"
+          DEPART_AHEAD: "1"     # today or tomorrow
+          MAX_NIGHTS: "2"       # back within two nights
+          MIN_LEAD_HOURS: "4"   # ignore flights leaving sooner than this
+        run: python spontaneous_watch.py
+
+      - name: Save what it saw
+        run: |
+          if [[ -n "$(git status --porcelain state.json)" ]]; then
+            git config user.name "flight-watch"
+            git config user.email "actions@github.com"
+            git add state.json
+            git commit -m "check $(date -u +%F)"
+            git push
+          fi
