@@ -6,19 +6,27 @@
 
 <br clear="left">
 
-Rolling watch for a spontaneous Avalon (AVV) to Sydney (SYD) trip. No fixed
-dates — every run checks leaving today or tomorrow, coming back any day up
-to a few nights out, and prices every workable combination. Twice a day it
-pushes your phone the moment the cheapest combo drops under budget, with
-priority escalating the better the deal.
+Rolling watch for spontaneous short-notice trips. No fixed dates — every run
+checks leaving today or tomorrow, coming back any day up to a few nights out,
+and prices every workable combination. Twice a day it pushes your phone the
+moment the cheapest combo drops under budget, with priority escalating the
+better the deal.
+
+Watch as many routes as you like (`ROUTES=AVV-SYD,MEL-BNE`); each is priced
+and alerted on its own, and the dashboard gets a tab per route.
 
 ## Setup, about ten minutes
 
 **1. Get a SerpApi key**
 
-Sign up at serpapi.com. The free plan covers 250 searches a month; this uses
-4 searches per run, twice daily (~240/month). Copy the key from your
-dashboard.
+Sign up at serpapi.com. Copy the key from your dashboard.
+
+Mind the quota. One route costs `(DEPART_AHEAD + 1) + (DEPART_AHEAD +
+MAX_NIGHTS + 1)` searches per run — 6 at the defaults. Twice daily that is
+**~360 searches a month, which overruns SerpApi's 250/month free tier**. To
+stay inside it, drop to one run a day (~180), or set `MAX_NIGHTS=1` for 5 per
+run. `SEARCH_BUDGET` caps each run so a long `ROUTES` list can't quietly burn
+a month of credit in an afternoon.
 
 **2. Set up push notifications**
 
@@ -90,8 +98,10 @@ secrets unless you add them back into the workflow's `env:` block).
 
 | Variable | Default | Does what |
 |---|---|---|
-| `HOME_AIRPORT` | `AVV` | Departure airport code |
-| `AWAY_AIRPORT` | `SYD` | Destination airport code |
+| `ROUTES` | *(from HOME/AWAY)* | Routes to watch, e.g. `AVV-SYD,MEL-BNE,AVV-OOL`. Each is priced and alerted independently |
+| `SEARCH_BUDGET` | `12` | Hard cap on API searches per run. The run stops rather than overspending |
+| `HOME_AIRPORT` | `AVV` | Departure airport, used when `ROUTES` is unset |
+| `AWAY_AIRPORT` | `SYD` | Destination airport, used when `ROUTES` is unset |
 | `TIMEZONE` | `Australia/Melbourne` | IANA timezone for "today"/departure cutoffs |
 | `DEPART_AHEAD` | `1` | How many days ahead to consider leaving. 0 = today only |
 | `MAX_NIGHTS` | `2` | Max nights away, counted from the departure day |

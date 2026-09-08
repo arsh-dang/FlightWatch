@@ -2,8 +2,10 @@ name: Flight watch
 
 on:
   schedule:
-    # Twice daily (UTC). Adjust cron as you prefer.
-    - cron: '0 6,18 * * *'
+    # 08:13 and 20:13 Melbourne (AEST). Deliberately off the hour: GitHub
+    # queues scheduled jobs at lowest priority and the :00 slots are the most
+    # congested, so on-the-hour runs get delayed or dropped outright.
+    - cron: '13 10,22 * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -33,6 +35,10 @@ jobs:
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Repo variables (Settings → Secrets and variables → Actions →
+          # Variables). Unset resolves to "", which falls back to the defaults.
+          ROUTES: ${{ vars.ROUTES }}
+          SEARCH_BUDGET: ${{ vars.SEARCH_BUDGET }}
         run: |
           python3 spontaneous_watch.py
 

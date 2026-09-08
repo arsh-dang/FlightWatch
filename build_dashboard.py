@@ -56,8 +56,37 @@ def summarise(history):
     }
 
 
+def route_key(entry):
+    return entry.get("route") or f"{HOME}-{AWAY}"
+
+
+def group_routes(history):
+    """History split per route, newest-cheapest first so the best deal leads."""
+    groups = {}
+    for entry in history:
+        groups.setdefault(route_key(entry), []).append(entry)
+
+    routes = []
+    for key, entries in groups.items():
+        facts = summarise(entries)
+        latest = facts["latest"]
+        routes.append({
+            "key": key,
+            "label": key.replace("-", " → "),
+            "current": (latest or {}).get("total"),
+            "low": (facts["cheapest"] or {}).get("total"),
+            "runs": facts["runs"],
+        })
+
+    # Cheapest current fare leads; routes with nothing bookable sink.
+    routes.sort(key=lambda r: (r["current"] is None, r["current"] or 0))
+    return routes
+
+
 def render(history, state):
-    facts = summarise(history)
+    routes = group_routes(history)
+    selected = routes[0]["key"] if routes else f"{HOME}-{AWAY}"
+    facts = summarise([e for e in history if route_key(e) == selected])
     latest, cheapest = facts["latest"], facts["cheapest"]
 
     current = latest.get("total") if latest else None
@@ -80,11 +109,19 @@ def render(history, state):
     payload = json.dumps({
         "history": history,
         "tiers": [{"value": v, "label": l} for v, l in TIERS],
-        "route": f"{HOME} → {AWAY}",
+        "routes": routes,
+        "selected": selected,
     })
 
+    if len(routes) > 1:
+        title = f"{len(routes)} routes"
+    elif routes:
+        title = routes[0]["label"]
+    else:
+        title = f"{HOME} → {AWAY}"
+
     return TEMPLATE.format(
-        route=f"{HOME} → {AWAY}",
+        route=title,
         hero=hero,
         headline=headline,
         tier_class=tier_class,
@@ -184,6 +221,19 @@ TEMPLATE = """<!doctype html>
     margin: 0;
   }}
   .hero-row {{ display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }}
+  .routes {{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }}
+  .route-tab {{
+    font: inherit; cursor: pointer; text-align: left;
+    background: var(--surface); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px;
+  }}
+  .route-tab:hover {{ border-color: var(--text-secondary); }}
+  .route-tab[aria-selected="true"] {{
+    border-color: var(--series); box-shadow: inset 0 0 0 1px var(--series);
+  }}
+  .route-tab .rt-name {{ display: block; font-weight: 600; }}
+  .route-tab .rt-price {{ color: var(--text-secondary); font-variant-numeric: tabular-nums; }}
+  .route-tab:focus-visible {{ outline: 2px solid var(--series); outline-offset: 2px; }}
   .hero-note {{ color: var(--text-secondary); margin: 10px 0 0; }}
 
   .badge {{
@@ -266,19 +316,21 @@ TEMPLATE = """<!doctype html>
     </div>
   </header>
 
+  <div class="routes" id="routes" role="tablist" aria-label="Watched routes" hidden></div>
+
   <section class="card">
     <div class="hero-row">
-      <p class="hero-figure">{hero}</p>
-      <span class="badge {tier_class}">{headline}</span>
+      <p class="hero-figure" id="hero">{hero}</p>
+      <span class="badge {tier_class}" id="badge">{headline}</span>
     </div>
-    <p class="hero-note">{trip_line}</p>
+    <p class="hero-note" id="trip-line">{trip_line}</p>
   </section>
 
   <section class="stats">
     <div class="stat">
       <div class="label">Lowest ever seen</div>
-      <div class="value">{low}</div>
-      <div class="meta">{low_when}</div>
+      <div class="value" id="low">{low}</div>
+      <div class="meta" id="low-when">{low_when}</div>
     </div>
     <div class="stat">
       <div class="label">Last checked</div>
@@ -287,8 +339,8 @@ TEMPLATE = """<!doctype html>
     </div>
     <div class="stat">
       <div class="label">Runs logged</div>
-      <div class="value">{runs}</div>
-      <div class="meta">{priced_runs} with a bookable trip</div>
+      <div class="value" id="runs">{runs}</div>
+      <div class="meta" id="runs-meta">{priced_runs} with a bookable trip</div>
     </div>
   </section>
 
@@ -315,12 +367,29 @@ TEMPLATE = """<!doctype html>
 <script>
 (function () {{
   const DATA = JSON.parse(document.getElementById("data").textContent);
-  const rows = DATA.history || [];
-  const priced = rows.filter(r => typeof r.total === "number");
+  const all = DATA.history || [];
+  const routes = DATA.routes || [];
   const chartEl = document.getElementById("chart");
   const tipEl = document.getElementById("tooltip");
+  const tabsEl = document.getElementById("routes");
+  const ns = "http://www.w3.org/2000/svg";
 
-  buildTable(rows);
+  buildRouteTabs();
+  select(DATA.selected);
+
+  function select(key) {{
+    const rows = routes.length > 1 ? all.filter(r => r.route === key) : all;
+    tabsEl.querySelectorAll("button").forEach(b =>
+      b.setAttribute("aria-selected", String(b.dataset.key === key)));
+    updateHero(rows);
+    buildTable(rows);
+    drawChart(rows);
+  }}
+
+  function drawChart(rows) {{
+  chartEl.textContent = "";
+  tipEl.style.opacity = 0;
+  const priced = rows.filter(r => typeof r.total === "number");
 
   if (priced.length < 2) {{
     chartEl.innerHTML = '<p class="empty">Not enough runs yet — the trend line appears after the second priced check.</p>';
@@ -356,7 +425,6 @@ TEMPLATE = """<!doctype html>
   }}
   if (run.length) segments.push(run);
 
-  const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", `0 0 ${{W}} ${{H}}`);
   svg.setAttribute("role", "img");
@@ -489,6 +557,7 @@ TEMPLATE = """<!doctype html>
   }});
 
   chartEl.appendChild(svg);
+  }}
 
   function el(parent, name, attrs) {{
     const n = document.createElementNS(ns, name);
@@ -512,8 +581,63 @@ TEMPLATE = """<!doctype html>
     const d = new Date(stamp.replace(" ", "T"));
     return isNaN(d) ? stamp : d.toLocaleDateString(undefined, {{ day: "numeric", month: "short" }});
   }}
+  function buildRouteTabs() {{
+    if (routes.length < 2) return;
+    tabsEl.hidden = false;
+    for (const r of routes) {{
+      const b = document.createElement("button");
+      b.className = "route-tab";
+      b.dataset.key = r.key;
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", "false");
+      const name = document.createElement("span");
+      name.className = "rt-name";
+      name.textContent = r.label;
+      const price = document.createElement("span");
+      price.className = "rt-price";
+      price.textContent = typeof r.current === "number"
+        ? `$${{Math.round(r.current)}}` : "no trip";
+      b.append(name, price);
+      b.addEventListener("click", () => select(r.key));
+      tabsEl.appendChild(b);
+    }}
+  }}
+
+  function updateHero(rows) {{
+    const priced = rows.filter(r => typeof r.total === "number");
+    const latest = rows[rows.length - 1];
+    const low = priced.length
+      ? priced.reduce((a, b) => (b.total < a.total ? b : a)) : null;
+    const total = latest ? latest.total : null;
+    const tier = DATA.tiers.find(t => typeof total === "number" && total <= t.value);
+
+    document.getElementById("hero").textContent =
+      typeof total === "number" ? `$${{Math.round(total).toLocaleString()}}` : "—";
+
+    const badge = document.getElementById("badge");
+    badge.textContent = typeof total !== "number" ? "No trip found"
+      : (tier ? tier.label : "Above budget");
+    badge.className = "badge " + (typeof total !== "number" ? "none"
+      : (tier ? "t" + tier.value : "over"));
+
+    document.getElementById("trip-line").textContent =
+      latest && typeof total === "number" && latest.out_day
+        ? `Out ${{latest.out_day}} ${{latest.out_time || ""}} · back ${{latest.back_day}} ${{latest.back_time || ""}} · ${{
+            latest.nights === 0 ? "same day" : latest.nights + " night" + (latest.nights > 1 ? "s" : "")}}`
+        : "Nothing bookable in the current window";
+
+    document.getElementById("low").textContent =
+      low ? `$${{Math.round(low.total).toLocaleString()}}` : "—";
+    document.getElementById("low-when").textContent =
+      low ? low.checked_at.split(" ")[0] : "no data yet";
+    document.getElementById("runs").textContent = rows.length;
+    document.getElementById("runs-meta").textContent =
+      `${{priced.length}} with a bookable trip`;
+  }}
+
   function buildTable(list) {{
     const table = document.getElementById("table");
+    table.textContent = "";
     const head = table.createTHead().insertRow();
     for (const label of ["Checked", "Total", "Out", "Back", "Nights"]) {{
       const th = document.createElement("th");

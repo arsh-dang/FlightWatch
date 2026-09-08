@@ -1,5 +1,5 @@
 """
-Rolling watch for a spontaneous Avalon -> Sydney trip.
+Rolling watch for spontaneous short-notice trips across one or more routes.
 
 No fixed dates. Every run it looks at leaving today or tomorrow, coming back
 any day up to a few days out, and prices every workable combination.
@@ -9,9 +9,13 @@ Alerts escalate by how good the deal is:
     under $150   high priority
     under $100   max priority, bypasses your phone's quiet hours
 
-Costs 4 API searches per run instead of 6, because one-way legs get priced
-once each and then combined. Jetstar prices one-ways independently, so the
-sum is the real round-trip cost.
+One-way legs get priced once each and then combined, rather than searching
+every date pair as a round trip. Low-cost carriers price one-ways
+independently, so the sum is the real round-trip cost.
+
+Each route costs (DEPART_AHEAD + 1) + (DEPART_AHEAD + MAX_NIGHTS + 1)
+searches per run. Watch the quota: SEARCH_BUDGET caps it per run so a long
+ROUTES list can't silently burn a month of API credit in a day.
 """
 
 import json
@@ -33,6 +37,26 @@ except ImportError:
 
 HOME = os.environ.get("HOME_AIRPORT") or "AVV"
 AWAY = os.environ.get("AWAY_AIRPORT") or "SYD"
+
+
+def parse_routes(raw):
+    """"AVV-SYD, MEL>BNE" -> [("AVV", "SYD"), ("MEL", "BNE")]."""
+    routes = []
+    for chunk in raw.replace(">", "-").split(","):
+        pair = [p.strip().upper() for p in chunk.split("-") if p.strip()]
+        if len(pair) != 2:
+            raise SystemExit(f"bad route {chunk.strip()!r}, expected ORIGIN-DEST")
+        if pair not in [list(r) for r in routes]:
+            routes.append(tuple(pair))
+    if not routes:
+        raise SystemExit("ROUTES is empty")
+    return routes
+
+
+# Watch several routes by setting ROUTES=AVV-SYD,MEL-BNE. Defaults to the
+# single HOME_AIRPORT/AWAY_AIRPORT pair.
+ROUTES = parse_routes(os.environ.get("ROUTES") or f"{HOME}-{AWAY}")
+
 _tz_env = (os.environ.get("TIMEZONE") or "").strip()
 if _tz_env:
     TZ = ZoneInfo(_tz_env)
@@ -57,6 +81,10 @@ TIERS = [
     (150.0, "high", "fire", "Very good"),
     (200.0, "default", "airplane", "Under budget"),
 ]
+
+# Hard ceiling on API searches per run. Hitting it stops the run rather than
+# quietly overspending the quota; widen ROUTES and this together, on purpose.
+SEARCH_BUDGET = int(os.environ.get("SEARCH_BUDGET") or "12")
 
 SERPAPI_KEY = os.environ["SERPAPI_KEY"]
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
@@ -95,8 +123,18 @@ def tier_for(total):
 
 # ---------------------------------------------------------------- fetching
 
+searches_used = 0
+
+
 def one_way(origin, destination, day):
     """Cheapest nonstop one-way on a given day. Returns a list of options."""
+    global searches_used
+    if searches_used >= SEARCH_BUDGET:
+        print(f"  {origin}->{destination} {day}: skipped, search budget spent",
+              file=sys.stderr)
+        return []
+    searches_used += 1
+
     params = {
         "engine": "google_flights",
         "departure_id": origin,
@@ -215,36 +253,31 @@ def format_trip(trip):
     return (
         f"Out {out['day'].strftime('%a %d %b')} {out['departs_text']}  ${out['price']:.0f}\n"
         f"Back {back['day'].strftime('%a %d %b')} {back['departs_text']}  ${back['price']:.0f}\n"
-        f"{stay} in Sydney"
+        f"{stay} in {trip['away']}"
         + urgency(out)
     )
 
 
 # ---------------------------------------------------------------- main
 
-def main():
-    state = load_state()
-    start = today()
-
+def search_route(home, away, start):
+    """Price every workable round trip on one route, cheapest first."""
     depart_days = [start + timedelta(days=i) for i in range(DEPART_AHEAD + 1)]
     return_days = [start + timedelta(days=i) for i in range(DEPART_AHEAD + MAX_NIGHTS + 1)]
 
-    print(f"leaving {depart_days[0]} through {depart_days[-1]}, "
-          f"back by {return_days[-1]}\n")
-
     outbound = {}
     for day in depart_days:
-        best = cheapest(one_way(HOME, AWAY, day))
+        best = cheapest(one_way(home, away, day))
         if best:
             outbound[day] = best
-            print(f"{HOME}->{AWAY} {day}: ${best['price']:.0f} at {best['departs_text']}")
+            print(f"  {home}->{away} {day}: ${best['price']:.0f} at {best['departs_text']}")
 
     inbound = {}
     for day in return_days:
-        best = cheapest(one_way(AWAY, HOME, day))
+        best = cheapest(one_way(away, home, day))
         if best:
             inbound[day] = best
-            print(f"{AWAY}->{HOME} {day}: ${best['price']:.0f} at {best['departs_text']}")
+            print(f"  {away}->{home} {day}: ${best['price']:.0f} at {best['departs_text']}")
 
     trips = []
     for out_day, out_leg in outbound.items():
@@ -257,35 +290,33 @@ def main():
                 if back_leg["departs"] <= out_leg["departs"] + timedelta(hours=3):
                     continue
             trips.append({
+                "home": home,
+                "away": away,
                 "out": out_leg,
                 "back": back_leg,
                 "total": out_leg["price"] + back_leg["price"],
             })
 
-    if not trips:
-        print("\nno workable combinations right now")
-        record_history(None)
-        return
-
     trips.sort(key=lambda t: t["total"])
-    best = trips[0]
-    record_history(best)
-    print(f"\ncheapest workable trip: ${best['total']:.0f}")
+    return trips
 
+
+def alert_for_route(state, route_key, trips, start):
+    """Push if this route just beat its best price in a tier. Returns the best."""
+    best = trips[0]
     tier = tier_for(best["total"])
     if not tier:
-        print(f"nothing under ${TIERS[-1][0]:.0f}")
-        save(state, best["total"])
+        print(f"  nothing under ${TIERS[-1][0]:.0f}")
         return
 
     threshold, priority, tag, headline = tier
+    seen = state.setdefault("routes", {}).setdefault(route_key, {})
     key = f"tier_{int(threshold)}"
-    previous = state.get(key)
+    previous = seen.get(key)
     stale = state.get("date") != str(start)
 
     if previous is not None and best["total"] >= previous and not stale:
-        print(f"already alerted at ${previous:.0f} in this tier")
-        save(state, best["total"])
+        print(f"  already alerted at ${previous:.0f} in this tier")
         return
 
     body = format_trip(best)
@@ -296,20 +327,51 @@ def main():
             f"{t['back']['day'].strftime('%a')}" for t in runners_up
         )
 
-    push(f"{headline}: ${best['total']:.0f} to see her", body, priority, tag)
-    state[key] = best["total"]
-    save(state, best["total"])
+    push(f"{headline}: ${best['total']:.0f} {best['home']}→{best['away']}",
+         body, priority, tag)
+    seen[key] = best["total"]
 
 
-def save(state, best_total):
+def main():
+    state = load_state()
+    start = today()
+
+    planned = len(ROUTES) * (2 * DEPART_AHEAD + MAX_NIGHTS + 2)
+    print(f"{len(ROUTES)} route(s), leaving {start} through "
+          f"{start + timedelta(days=DEPART_AHEAD)}, back by "
+          f"{start + timedelta(days=DEPART_AHEAD + MAX_NIGHTS)}")
+    print(f"{planned} searches planned, budget {SEARCH_BUDGET}\n")
+    if planned > SEARCH_BUDGET:
+        print(f"warning: budget stops the run after {SEARCH_BUDGET} searches, "
+              f"later routes will be skipped", file=sys.stderr)
+
+    for home, away in ROUTES:
+        route_key = f"{home}-{away}"
+        print(f"{route_key}:")
+        trips = search_route(home, away, start)
+        record_history(route_key, trips[0] if trips else None)
+
+        if not trips:
+            print("  no workable combinations right now")
+            continue
+
+        print(f"  cheapest: ${trips[0]['total']:.0f}")
+        state.setdefault("routes", {}).setdefault(route_key, {})["last_seen"] = \
+            trips[0]["total"]
+        alert_for_route(state, route_key, trips, start)
+
+    print(f"\n{searches_used} searches used")
+    save(state)
+
+
+def save(state):
     state["date"] = str(today())
-    state["last_seen"] = best_total
     state["checked_at"] = now().strftime("%Y-%m-%d %H:%M")
     STATE_FILE.write_text(json.dumps(state, indent=2) + "\n")
 
 
-def record_history(trip):
-    """Append this run's result so the dashboard can chart the trend."""
+def record_history(route_key, trip):
+    """Append this route's result so the dashboard can chart the trend."""
     try:
         entries = json.loads(HISTORY_FILE.read_text())
         if not isinstance(entries, list):
@@ -317,7 +379,7 @@ def record_history(trip):
     except (OSError, json.JSONDecodeError):
         entries = []
 
-    entry = {"checked_at": now().strftime("%Y-%m-%d %H:%M"), "route": f"{HOME}-{AWAY}"}
+    entry = {"checked_at": now().strftime("%Y-%m-%d %H:%M"), "route": route_key}
     if trip:
         out, back = trip["out"], trip["back"]
         entry.update({
