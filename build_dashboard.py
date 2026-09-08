@@ -1,0 +1,547 @@
+"""
+Renders history.json into a static dashboard at docs/index.html.
+
+Runs after every watch. No build step, no dependencies, no CDN: the data is
+inlined as JSON and the chart is drawn client side into an SVG, so the file
+opens straight from disk or from GitHub Pages.
+"""
+
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+HISTORY_FILE = Path(os.environ.get("HISTORY_FILE", "history.json"))
+STATE_FILE = Path(os.environ.get("STATE_FILE", "state.json"))
+OUT_FILE = Path(os.environ.get("DASHBOARD_FILE", "docs/index.html"))
+
+HOME = os.environ.get("HOME_AIRPORT") or "AVV"
+AWAY = os.environ.get("AWAY_AIRPORT") or "SYD"
+
+# Mirrors TIERS in spontaneous_watch.py. Drawn as reference lines on the chart.
+TIERS = [
+    (100.0, "Drop everything"),
+    (150.0, "Very good"),
+    (200.0, "Under budget"),
+]
+
+
+def load_json(path, fallback):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return fallback
+
+
+def tier_label(total):
+    if total is None:
+        return "No trip found", "none"
+    for threshold, label in TIERS:
+        if total <= threshold:
+            return label, f"t{int(threshold)}"
+    return "Above budget", "over"
+
+
+def summarise(history):
+    priced = [e for e in history if e.get("total") is not None]
+    latest = history[-1] if history else None
+    cheapest = min(priced, key=lambda e: e["total"]) if priced else None
+    return {
+        "latest": latest,
+        "cheapest": cheapest,
+        "runs": len(history),
+        "priced_runs": len(priced),
+    }
+
+
+def render(history, state):
+    facts = summarise(history)
+    latest, cheapest = facts["latest"], facts["cheapest"]
+
+    current = latest.get("total") if latest else None
+    headline, tier_class = tier_label(current)
+    hero = f"${current:,.0f}" if current is not None else "—"
+    checked = (latest or {}).get("checked_at") or (state or {}).get("checked_at") or "never"
+    low = f"${cheapest['total']:,.0f}" if cheapest else "—"
+    low_when = cheapest["checked_at"].split(" ")[0] if cheapest else "no data yet"
+
+    if latest and latest.get("total") is not None:
+        nights = latest.get("nights", 0)
+        stay = "same day" if nights == 0 else f"{nights} night{'s' if nights > 1 else ''}"
+        trip_line = (
+            f"Out {latest.get('out_day', '?')} {latest.get('out_time', '')} · "
+            f"back {latest.get('back_day', '?')} {latest.get('back_time', '')} · {stay}"
+        )
+    else:
+        trip_line = "Nothing bookable in the current window"
+
+    payload = json.dumps({
+        "history": history,
+        "tiers": [{"value": v, "label": l} for v, l in TIERS],
+        "route": f"{HOME} → {AWAY}",
+    })
+
+    return TEMPLATE.format(
+        route=f"{HOME} → {AWAY}",
+        hero=hero,
+        headline=headline,
+        tier_class=tier_class,
+        trip_line=trip_line,
+        checked=checked,
+        low=low,
+        low_when=low_when,
+        runs=facts["runs"],
+        priced_runs=facts["priced_runs"],
+        generated=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        payload=payload,
+    )
+
+
+TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{route} fare watch</title>
+<style>
+  :root {{
+    color-scheme: light;
+    --page:           #f9f9f7;
+    --surface:        #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --axis:           #c3c2b7;
+    --border:         rgba(11, 11, 11, 0.10);
+    --series:         #2a78d6;
+    --series-wash:    rgba(42, 120, 214, 0.10);
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --serious:        #ec835a;
+    --critical:       #d03b3b;
+  }}
+  @media (prefers-color-scheme: dark) {{
+    :root:not([data-theme="light"]) {{
+      color-scheme: dark;
+      --page:           #0d0d0d;
+      --surface:        #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --axis:           #383835;
+      --border:         rgba(255, 255, 255, 0.10);
+      --series:         #3987e5;
+      --series-wash:    rgba(57, 135, 229, 0.14);
+    }}
+  }}
+  :root[data-theme="dark"] {{
+    color-scheme: dark;
+    --page:           #0d0d0d;
+    --surface:        #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --border:         rgba(255, 255, 255, 0.10);
+    --series:         #3987e5;
+    --series-wash:    rgba(57, 135, 229, 0.14);
+  }}
+
+  * {{ box-sizing: border-box; }}
+  body {{
+    margin: 0;
+    padding: 32px 20px 64px;
+    background: var(--page);
+    color: var(--text-primary);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }}
+  .wrap {{ max-width: 900px; margin: 0 auto; }}
+
+  header {{ margin-bottom: 28px; }}
+  h1 {{ font-size: 15px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em; }}
+  .sub {{ color: var(--text-secondary); font-size: 13px; margin: 0; }}
+
+  .card {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }}
+
+  .hero-figure {{
+    font-size: 56px;
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }}
+  .hero-row {{ display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }}
+  .hero-note {{ color: var(--text-secondary); margin: 10px 0 0; }}
+
+  .badge {{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    white-space: nowrap;
+  }}
+  .badge::before {{
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--dot, var(--text-muted)); flex: none;
+  }}
+  .badge.t100 {{ --dot: var(--critical); }}
+  .badge.t150 {{ --dot: var(--serious); }}
+  .badge.t200 {{ --dot: var(--good); }}
+  .badge.over {{ --dot: var(--warning); }}
+  .badge.none {{ --dot: var(--text-muted); }}
+
+  .stats {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }}
+  .stat {{ background: var(--surface); padding: 16px 18px; }}
+  .stat .label {{ color: var(--text-secondary); font-size: 12px; margin-bottom: 4px; }}
+  .stat .value {{ font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }}
+  .stat .meta {{ color: var(--text-muted); font-size: 12px; margin-top: 2px; }}
+
+  .chart-head {{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 18px; }}
+  .chart-head h2 {{ font-size: 14px; font-weight: 600; margin: 0; }}
+  .chart-head .hint {{ color: var(--text-muted); font-size: 12px; }}
+  .chart-scroll {{ overflow-x: auto; }}
+  svg {{ display: block; width: 100%; height: auto; touch-action: pan-y; }}
+  .tick {{ fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }}
+  .tier-label {{ fill: var(--text-muted); font-size: 10px; }}
+  .end-label {{ fill: var(--text-primary); font-size: 12px; font-weight: 600; }}
+  .empty {{ color: var(--text-secondary); padding: 28px 0; text-align: center; }}
+
+  .tooltip {{
+    position: absolute; pointer-events: none; opacity: 0;
+    transform: translate(-50%, -100%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    font-size: 12px; white-space: nowrap; z-index: 5;
+    transition: opacity 0.08s ease;
+  }}
+  .tooltip .tt-value {{ font-size: 15px; font-weight: 600; }}
+  .tooltip .tt-meta {{ color: var(--text-secondary); margin-top: 2px; }}
+  .tt-key {{ display: inline-block; width: 12px; height: 2px; background: var(--series); vertical-align: middle; margin-right: 6px; }}
+
+  details {{ margin-top: 4px; }}
+  summary {{ cursor: pointer; color: var(--text-secondary); font-size: 13px; padding: 4px 0; }}
+  summary:hover {{ color: var(--text-primary); }}
+  table {{ border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 13px; }}
+  th, td {{ text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }}
+  th {{ color: var(--text-secondary); font-weight: 600; font-size: 12px; }}
+  td.num {{ font-variant-numeric: tabular-nums; }}
+  .table-wrap {{ max-height: 340px; overflow: auto; }}
+
+  footer {{ color: var(--text-muted); font-size: 12px; margin-top: 24px; text-align: center; }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>{route} fare watch</h1>
+    <p class="sub">Cheapest bookable round trip, checked twice daily</p>
+  </header>
+
+  <section class="card">
+    <div class="hero-row">
+      <p class="hero-figure">{hero}</p>
+      <span class="badge {tier_class}">{headline}</span>
+    </div>
+    <p class="hero-note">{trip_line}</p>
+  </section>
+
+  <section class="stats">
+    <div class="stat">
+      <div class="label">Lowest ever seen</div>
+      <div class="value">{low}</div>
+      <div class="meta">{low_when}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Last checked</div>
+      <div class="value" style="font-size:16px">{checked}</div>
+      <div class="meta">local time</div>
+    </div>
+    <div class="stat">
+      <div class="label">Runs logged</div>
+      <div class="value">{runs}</div>
+      <div class="meta">{priced_runs} with a bookable trip</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="chart-head">
+      <h2>Cheapest total over time</h2>
+      <span class="hint">AUD, return</span>
+    </div>
+    <div class="chart-scroll" id="chart"></div>
+    <div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Table view — every logged run</summary>
+      <div class="table-wrap"><table id="table"></table></div>
+    </details>
+  </section>
+
+  <footer>Generated {generated} · data from SerpApi Google Flights</footer>
+</div>
+
+<script id="data" type="application/json">{payload}</script>
+<script>
+(function () {{
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const rows = DATA.history || [];
+  const priced = rows.filter(r => typeof r.total === "number");
+  const chartEl = document.getElementById("chart");
+  const tipEl = document.getElementById("tooltip");
+
+  buildTable(rows);
+
+  if (priced.length < 2) {{
+    chartEl.innerHTML = '<p class="empty">Not enough runs yet — the trend line appears after the second priced check.</p>';
+    return;
+  }}
+
+  const W = 860, H = 300;
+  const M = {{ top: 20, right: 112, bottom: 30, left: 52 }};
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  const times = rows.map(r => Date.parse(r.checked_at.replace(" ", "T")) || 0);
+  const tMin = Math.min(...times), tMax = Math.max(...times);
+  const totals = priced.map(r => r.total);
+  const tierMax = Math.max(...DATA.tiers.map(t => t.value));
+  const rawMin = Math.min(...totals), rawMax = Math.max(...totals, tierMax);
+  const pad = (rawMax - rawMin) * 0.12 || 20;
+  const yMin = Math.max(0, Math.floor((rawMin - pad) / 25) * 25);
+  const yMax = Math.ceil((rawMax + pad) / 25) * 25;
+
+  const x = t => tMax === tMin ? plotW / 2 : ((t - tMin) / (tMax - tMin)) * plotW;
+  const y = v => plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+  const pts = rows.map((r, i) => ({{ row: r, x: x(times[i]), y: typeof r.total === "number" ? y(r.total) : null }}));
+  const solid = pts.filter(p => p.y !== null);
+
+  // Break the line where a run found nothing, rather than drawing through zero.
+  const segments = [];
+  let run = [];
+  for (const p of pts) {{
+    if (p.y === null) {{ if (run.length) segments.push(run); run = []; }}
+    else run.push(p);
+  }}
+  if (run.length) segments.push(run);
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${{W}} ${{H}}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Cheapest ${{DATA.route}} return fare across ${{priced.length}} checks`);
+
+  const g = el(svg, "g", {{ transform: `translate(${{M.left}},${{M.top}})` }});
+
+  // y gridlines + ticks, landing on round numbers rather than the data edge
+  const yStep = niceStep(yMax - yMin);
+  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax + 0.001; v += yStep) {{
+    el(g, "line", {{ x1: 0, x2: plotW, y1: y(v), y2: y(v), stroke: "var(--grid)", "stroke-width": 1 }});
+    text(g, `$${{Math.round(v)}}`, -10, y(v) + 4, "tick", "end");
+  }}
+
+  // tier reference lines — recessive, labelled, never series-coloured
+  for (const tier of DATA.tiers) {{
+    if (tier.value < yMin || tier.value > yMax) continue;
+    el(g, "line", {{
+      x1: 0, x2: plotW, y1: y(tier.value), y2: y(tier.value),
+      stroke: "var(--axis)", "stroke-width": 1, "stroke-dasharray": "3 3"
+    }});
+    text(g, tier.label, plotW + 6, y(tier.value) + 3, "tier-label", "start");
+  }}
+
+  // x ticks — first, middle, last
+  const idxs = [...new Set([0, Math.floor(pts.length / 2), pts.length - 1])];
+  for (const i of idxs) {{
+    text(g, shortDate(rows[i].checked_at), pts[i].x, plotH + 20, "tick", "middle");
+  }}
+  el(g, "line", {{ x1: 0, x2: plotW, y1: plotH, y2: plotH, stroke: "var(--axis)", "stroke-width": 1 }});
+
+  // area wash + line, per segment
+  for (const seg of segments) {{
+    if (seg.length > 1) {{
+      el(g, "path", {{
+        d: `M${{seg[0].x}},${{plotH}} ` + seg.map(p => `L${{p.x}},${{p.y}}`).join(" ") + ` L${{seg[seg.length - 1].x}},${{plotH}} Z`,
+        fill: "var(--series-wash)", stroke: "none"
+      }});
+    }}
+    el(g, "path", {{
+      d: seg.map((p, i) => `${{i ? "L" : "M"}}${{p.x}},${{p.y}}`).join(" "),
+      fill: "none", stroke: "var(--series)", "stroke-width": 2,
+      "stroke-linejoin": "round", "stroke-linecap": "round"
+    }});
+  }}
+
+  // crosshair
+  const cross = el(g, "line", {{
+    y1: 0, y2: plotH, stroke: "var(--axis)", "stroke-width": 1, opacity: 0
+  }});
+
+  // end marker + direct label (the only labelled point). Sits above the dot and
+  // inside the plot, so it never collides with the tier labels in the margin.
+  const last = solid[solid.length - 1];
+  el(g, "circle", {{ cx: last.x, cy: last.y, r: 6, fill: "var(--series)", stroke: "var(--surface)", "stroke-width": 2 }});
+  const labelAbove = last.y > 28;
+  text(g, `$${{Math.round(last.row.total)}}`, last.x - 10, labelAbove ? last.y - 14 : last.y + 22, "end-label", "end");
+
+  const hoverDot = el(g, "circle", {{ r: 6, fill: "var(--series)", stroke: "var(--surface)", "stroke-width": 2, opacity: 0 }});
+
+  const hit = el(g, "rect", {{ x: 0, y: 0, width: plotW, height: plotH, fill: "transparent" }});
+  hit.setAttribute("tabindex", "0");
+
+  let active = -1;
+  function showAt(px) {{
+    let best = 0, bestD = Infinity;
+    pts.forEach((p, i) => {{ const d = Math.abs(p.x - px); if (d < bestD) {{ bestD = d; best = i; }} }});
+    if (best === active) return;
+    active = best;
+    const p = pts[best], r = p.row;
+    cross.setAttribute("x1", p.x); cross.setAttribute("x2", p.x); cross.setAttribute("opacity", 1);
+    if (p.y !== null) {{
+      hoverDot.setAttribute("cx", p.x); hoverDot.setAttribute("cy", p.y); hoverDot.setAttribute("opacity", 1);
+    }} else {{
+      hoverDot.setAttribute("opacity", 0);
+    }}
+    renderTip(r, p);
+  }}
+
+  function renderTip(r, p) {{
+    tipEl.textContent = "";
+    const value = document.createElement("div");
+    value.className = "tt-value";
+    const key = document.createElement("span");
+    key.className = "tt-key";
+    value.appendChild(key);
+    value.appendChild(document.createTextNode(
+      typeof r.total === "number" ? `$${{Math.round(r.total)}} return` : "No bookable trip"
+    ));
+    tipEl.appendChild(value);
+
+    const meta = document.createElement("div");
+    meta.className = "tt-meta";
+    meta.textContent = r.checked_at;
+    tipEl.appendChild(meta);
+
+    if (typeof r.total === "number" && r.out_day) {{
+      const legs = document.createElement("div");
+      legs.className = "tt-meta";
+      legs.textContent = `Out ${{r.out_day}} ${{r.out_time || ""}} · back ${{r.back_day}} ${{r.back_time || ""}}`;
+      tipEl.appendChild(legs);
+    }}
+
+    const box = chartEl.getBoundingClientRect();
+    const scale = box.width / W;
+    tipEl.style.left = (box.left + window.scrollX + (M.left + p.x) * scale) + "px";
+    tipEl.style.top = (box.top + window.scrollY + (M.top + (p.y ?? plotH / 2)) * scale - 12) + "px";
+    tipEl.style.opacity = 1;
+  }}
+
+  function hide() {{
+    active = -1;
+    tipEl.style.opacity = 0;
+    cross.setAttribute("opacity", 0);
+    hoverDot.setAttribute("opacity", 0);
+  }}
+
+  hit.addEventListener("pointermove", e => {{
+    const box = svg.getBoundingClientRect();
+    showAt((e.clientX - box.left) * (W / box.width) - M.left);
+  }});
+  hit.addEventListener("pointerleave", hide);
+  hit.addEventListener("blur", hide);
+  hit.addEventListener("keydown", e => {{
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const next = Math.min(pts.length - 1, Math.max(0, (active < 0 ? pts.length - 1 : active) + (e.key === "ArrowRight" ? 1 : -1)));
+    active = -1;
+    showAt(pts[next].x);
+  }});
+
+  chartEl.appendChild(svg);
+
+  function el(parent, name, attrs) {{
+    const n = document.createElementNS(ns, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    parent.appendChild(n);
+    return n;
+  }}
+  function text(parent, str, tx, ty, cls, anchor) {{
+    const n = document.createElementNS(ns, "text");
+    n.setAttribute("x", tx); n.setAttribute("y", ty);
+    n.setAttribute("class", cls); n.setAttribute("text-anchor", anchor);
+    n.textContent = str;
+    parent.appendChild(n);
+    return n;
+  }}
+  function niceStep(range) {{
+    const target = range / 5;
+    return [10, 25, 50, 100, 200, 500].find(s => s >= target) || 1000;
+  }}
+  function shortDate(stamp) {{
+    const d = new Date(stamp.replace(" ", "T"));
+    return isNaN(d) ? stamp : d.toLocaleDateString(undefined, {{ day: "numeric", month: "short" }});
+  }}
+  function buildTable(list) {{
+    const table = document.getElementById("table");
+    const head = table.createTHead().insertRow();
+    for (const label of ["Checked", "Total", "Out", "Back", "Nights"]) {{
+      const th = document.createElement("th");
+      th.textContent = label;
+      head.appendChild(th);
+    }}
+    const body = table.createTBody();
+    for (const r of [...list].reverse()) {{
+      const tr = body.insertRow();
+      cell(tr, r.checked_at);
+      cell(tr, typeof r.total === "number" ? `$${{Math.round(r.total)}}` : "—", true);
+      cell(tr, r.out_day ? `${{r.out_day}} ${{r.out_time || ""}}`.trim() : "—");
+      cell(tr, r.back_day ? `${{r.back_day}} ${{r.back_time || ""}}`.trim() : "—");
+      cell(tr, r.nights === undefined ? "—" : String(r.nights), true);
+    }}
+  }}
+  function cell(tr, value, numeric) {{
+    const td = tr.insertCell();
+    td.textContent = value;
+    if (numeric) td.className = "num";
+  }}
+}})();
+</script>
+</body>
+</html>
+"""
+
+
+def main():
+    history = load_json(HISTORY_FILE, [])
+    state = load_json(STATE_FILE, {})
+    OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUT_FILE.write_text(render(history, state))
+    print(f"dashboard written to {OUT_FILE} ({len(history)} runs)")
+
+
+if __name__ == "__main__":
+    main()

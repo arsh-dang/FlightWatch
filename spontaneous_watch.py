@@ -61,6 +61,9 @@ TIERS = [
 SERPAPI_KEY = os.environ["SERPAPI_KEY"]
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
 STATE_FILE = Path(os.environ.get("STATE_FILE", "state.json"))
+HISTORY_FILE = Path(os.environ.get("HISTORY_FILE", "history.json"))
+# Roughly a year of twice-daily runs. Keeps the dashboard payload small.
+HISTORY_LIMIT = int(os.environ.get("HISTORY_LIMIT") or "750")
 
 
 # ---------------------------------------------------------------- helpers
@@ -261,10 +264,12 @@ def main():
 
     if not trips:
         print("\nno workable combinations right now")
+        record_history(None)
         return
 
     trips.sort(key=lambda t: t["total"])
     best = trips[0]
+    record_history(best)
     print(f"\ncheapest workable trip: ${best['total']:.0f}")
 
     tier = tier_for(best["total"])
@@ -301,6 +306,39 @@ def save(state, best_total):
     state["last_seen"] = best_total
     state["checked_at"] = now().strftime("%Y-%m-%d %H:%M")
     STATE_FILE.write_text(json.dumps(state, indent=2) + "\n")
+
+
+def record_history(trip):
+    """Append this run's result so the dashboard can chart the trend."""
+    try:
+        entries = json.loads(HISTORY_FILE.read_text())
+        if not isinstance(entries, list):
+            entries = []
+    except (OSError, json.JSONDecodeError):
+        entries = []
+
+    entry = {"checked_at": now().strftime("%Y-%m-%d %H:%M"), "route": f"{HOME}-{AWAY}"}
+    if trip:
+        out, back = trip["out"], trip["back"]
+        entry.update({
+            "total": trip["total"],
+            "out_day": out["day"].isoformat(),
+            "out_time": out["departs_text"],
+            "out_price": out["price"],
+            "out_airline": out["airline"],
+            "back_day": back["day"].isoformat(),
+            "back_time": back["departs_text"],
+            "back_price": back["price"],
+            "back_airline": back["airline"],
+            "nights": (back["day"] - out["day"]).days,
+        })
+    else:
+        entry["total"] = None
+
+    entries.append(entry)
+    HISTORY_FILE.write_text(
+        json.dumps(entries[-HISTORY_LIMIT:], indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

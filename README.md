@@ -16,9 +16,12 @@ dashboard.
 
 **2. Set up push notifications**
 
-Install the ntfy app (iOS or Android). Pick a topic name nobody would guess,
-something like `arsh-avv-syd-8823`, and subscribe to it in the app. No account
-needed. Anyone who knows the topic name can read it, so make it random.
+Install the ntfy app (iOS or Android). Pick a topic name nobody would guess —
+a long random string — and subscribe to it in the app. No account needed.
+
+The topic name is effectively a password: anyone who knows it can read your
+alerts *and* push notifications to your phone. Never commit it; keep it in
+`.env` locally and in GitHub Actions secrets for CI.
 
 **3. Put it on GitHub**
 
@@ -56,6 +59,23 @@ cp .env.example .env
 Actions tab, pick "Flight watch", then "Run workflow". Check the log output and
 confirm the push lands on your phone.
 
+## Dashboard
+
+Every run appends its result to `history.json` and regenerates
+`docs/index.html` — a static dashboard with the current cheapest fare, the
+lowest ever seen, and a price trend chart across every logged run.
+
+No build step and no CDN: the history is inlined as JSON and the chart is
+drawn into an SVG at load, so the file opens straight from disk.
+
+```bash
+python3 build_dashboard.py && open docs/index.html
+```
+
+To serve it publicly, enable GitHub Pages on the `docs/` folder of the
+default branch (Settings → Pages). Pages from a private repo needs a paid
+plan; on a public repo it's free.
+
 ## Tuning
 
 All of these have defaults baked into `spontaneous_watch.py` and can be
@@ -73,6 +93,9 @@ secrets unless you add them back into the workflow's `env:` block).
 | `CHECKIN_CLOSES_MIN` | `40` | Minutes before departure that check-in/bag-drop closes |
 | `DRIVE_MIN` | `25` | Drive time to the airport, used in urgency warnings |
 | `STATE_FILE` | `state.json` | Where last-seen price/tier state is persisted |
+| `HISTORY_FILE` | `history.json` | Append-only log of every run, powers the dashboard |
+| `HISTORY_LIMIT` | `750` | Runs kept in the log (~1 year of twice-daily checks) |
+| `DASHBOARD_FILE` | `docs/index.html` | Where the generated dashboard is written |
 
 Alert tiers (in `spontaneous_watch.py`, `TIERS`): under $200 normal push,
 under $150 high priority, under $100 max priority (bypasses phone quiet
