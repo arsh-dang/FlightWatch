@@ -25,6 +25,8 @@ TIERS = [
     (200.0, "Under budget"),
 ]
 
+ICON_SRC = Path(os.environ.get("ICON_FILE", "icon.svg"))
+
 
 def load_json(path, fallback):
     try:
@@ -103,6 +105,7 @@ TEMPLATE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{route} fare watch</title>
+<link rel="icon" href="icon.svg">
 <style>
   :root {{
     color-scheme: light;
@@ -160,7 +163,8 @@ TEMPLATE = """<!doctype html>
   }}
   .wrap {{ max-width: 900px; margin: 0 auto; }}
 
-  header {{ margin-bottom: 28px; }}
+  header {{ margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }}
+  .mark {{ flex: none; width: 38px; height: 38px; border-radius: 9px; display: block; }}
   h1 {{ font-size: 15px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em; }}
   .sub {{ color: var(--text-secondary); font-size: 13px; margin: 0; }}
 
@@ -255,8 +259,11 @@ TEMPLATE = """<!doctype html>
 <body>
 <div class="wrap">
   <header>
-    <h1>{route} fare watch</h1>
-    <p class="sub">Cheapest bookable round trip, checked twice daily</p>
+    <img class="mark" src="icon.svg" alt="" width="38" height="38">
+    <div>
+      <h1>{route} fare watch</h1>
+      <p class="sub">Cheapest bookable round trip, checked twice daily</p>
+    </div>
   </header>
 
   <section class="card">
@@ -540,6 +547,9 @@ def main():
     state = load_json(STATE_FILE, {})
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(render(history, state))
+    # Copied rather than inlined so the icon keeps its content credentials.
+    if ICON_SRC.exists():
+        (OUT_FILE.parent / "icon.svg").write_bytes(ICON_SRC.read_bytes())
     print(f"dashboard written to {OUT_FILE} ({len(history)} runs)")
 
 

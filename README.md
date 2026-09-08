@@ -1,4 +1,10 @@
+<img src="icon.svg" alt="" width="72" align="left" hspace="14" vspace="4">
+
 # AVV to SYD fare watch
+
+**[Live dashboard →](https://arsh-dang.github.io/FlightWatch/)**
+
+<br clear="left">
 
 Rolling watch for a spontaneous Avalon (AVV) to Sydney (SYD) trip. No fixed
 dates — every run checks leaving today or tomorrow, coming back any day up

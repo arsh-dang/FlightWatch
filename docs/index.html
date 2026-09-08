@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AVV → SYD fare watch</title>
+<link rel="icon" href="icon.svg">
 <style>
   :root {
     color-scheme: light;
@@ -61,7 +62,8 @@
   }
   .wrap { max-width: 900px; margin: 0 auto; }
 
-  header { margin-bottom: 28px; }
+  header { margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+  .mark { flex: none; width: 38px; height: 38px; border-radius: 9px; display: block; }
   h1 { font-size: 15px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em; }
   .sub { color: var(--text-secondary); font-size: 13px; margin: 0; }
 
@@ -156,8 +158,11 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>AVV → SYD fare watch</h1>
-    <p class="sub">Cheapest bookable round trip, checked twice daily</p>
+    <img class="mark" src="icon.svg" alt="" width="38" height="38">
+    <div>
+      <h1>AVV → SYD fare watch</h1>
+      <p class="sub">Cheapest bookable round trip, checked twice daily</p>
+    </div>
   </header>
 
   <section class="card">
@@ -176,7 +181,7 @@
     </div>
     <div class="stat">
       <div class="label">Last checked</div>
-      <div class="value" style="font-size:16px">2026-09-08 05:00</div>
+      <div class="value" style="font-size:16px">2026-09-08 05:02</div>
       <div class="meta">local time</div>
     </div>
     <div class="stat">
@@ -202,7 +207,7 @@
     </details>
   </section>
 
-  <footer>Generated 2026-09-08 12:37 · data from SerpApi Google Flights</footer>
+  <footer>Generated 2026-09-08 13:04 · data from SerpApi Google Flights</footer>
 </div>
 
 <script id="data" type="application/json">{"history": [], "tiers": [{"value": 100.0, "label": "Drop everything"}, {"value": 150.0, "label": "Very good"}, {"value": 200.0, "label": "Under budget"}], "route": "AVV \u2192 SYD"}</script>
