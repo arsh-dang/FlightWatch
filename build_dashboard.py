@@ -14,6 +14,8 @@ from pathlib import Path
 HISTORY_FILE = Path(os.environ.get("HISTORY_FILE", "history.json"))
 STATE_FILE = Path(os.environ.get("STATE_FILE", "state.json"))
 ROUTES_FILE = Path(os.environ.get("ROUTES_FILE", "routes.json"))
+FLIGHTS_FILE = Path(os.environ.get("FLIGHTS_FILE", "flights.json"))
+CATALOGUE_FILE = Path(os.environ.get("CATALOGUE_FILE", "catalogue.json"))
 OUT_FILE = Path(os.environ.get("DASHBOARD_FILE", "docs/index.html"))
 
 HOME = os.environ.get("HOME_AIRPORT") or "AVV"
@@ -78,6 +80,16 @@ def tracked_routes():
     return [f"{HOME}-{AWAY}"]
 
 
+def watched_flights():
+    """Flight numbers currently picked. Empty means take whatever is cheapest."""
+    picked = load_json(FLIGHTS_FILE, None)
+    if isinstance(picked, dict):
+        picked = picked.get("flights")
+    if not isinstance(picked, list):
+        return []
+    return [str(f).strip().upper() for f in picked if str(f).strip()]
+
+
 def group_routes(history):
     """History split per route, newest-cheapest first so the best deal leads."""
     groups = {}
@@ -130,6 +142,8 @@ def render(history, state):
         "routes": routes,
         "selected": selected,
         "tracked": tracked_routes(),
+        "catalogue": load_json(CATALOGUE_FILE, []),
+        "watching": watched_flights(),
         "repo": os.environ.get("GITHUB_REPOSITORY", "arsh-dang/FlightWatch"),
     })
 
@@ -283,6 +297,23 @@ TEMPLATE = """<!doctype html>
   }}
   .add-route button:hover, .picker-actions .reset:hover {{ border-color: var(--text-secondary); }}
   .picker-error {{ color: var(--critical); margin: 10px 0 0; }}
+  .flights-head {{ font-size: 14px; margin: 26px 0 0; }}
+  .flight-group {{ margin-top: 16px; }}
+  .flight-group h4 {{
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-secondary); margin: 0 0 8px;
+  }}
+  .flight-list {{ list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }}
+  .flight-list label {{
+    display: grid; grid-template-columns: auto 4.5em 1fr auto; gap: 12px;
+    align-items: center; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  }}
+  .flight-list label:hover {{ background: var(--bg); }}
+  .flight-list .fl-time {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
+  .flight-list .fl-name {{ color: var(--text-secondary); }}
+  .flight-list .fl-price {{ font-variant-numeric: tabular-nums; color: var(--text-secondary); }}
+  .flight-list input {{ accent-color: var(--series); width: 15px; height: 15px; }}
+  .flights-empty {{ color: var(--text-secondary); margin: 12px 0 0; }}
   .picker-actions {{ display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }}
   .apply {{
     background: var(--series); color: #fff; text-decoration: none;
@@ -421,7 +452,7 @@ TEMPLATE = """<!doctype html>
 
   <section class="card">
     <details id="picker-wrap">
-      <summary>Tracked flights — add or remove routes</summary>
+      <summary>Tracked routes and flights — choose what gets priced</summary>
       <p class="picker-note">
         Changes are applied by opening a prefilled issue on the repo. Submitting
         it runs a workflow that saves the list and starts the next check. No
@@ -439,6 +470,14 @@ TEMPLATE = """<!doctype html>
         <button type="submit">Add route</button>
       </form>
       <p class="picker-error" id="picker-error" role="alert" hidden></p>
+
+      <h3 class="flights-head">Flights on those routes</h3>
+      <p class="picker-note" id="flights-note">
+        Every flight seen so far. Tick the ones to price — leave all unticked
+        to take whatever is cheapest on the day.
+      </p>
+      <div id="flights"></div>
+
       <div class="picker-actions">
         <a class="apply" id="apply" href="#" target="_blank" rel="noopener">Apply changes</a>
         <button type="button" class="reset" id="reset">Reset</button>
@@ -675,8 +714,13 @@ TEMPLATE = """<!doctype html>
     const applyEl = document.getElementById("apply");
     const fromEl = document.getElementById("from");
     const toEl = document.getElementById("to");
+    const flightsEl = document.getElementById("flights");
+    const noteEl = document.getElementById("flights-note");
+    const catalogue = DATA.catalogue || [];
     const original = (DATA.tracked || []).join(",");
+    const originalFlights = [...(DATA.watching || [])].sort().join(",");
     let picked = [...(DATA.tracked || [])];
+    let flights = new Set(DATA.watching || []);
 
     function fail(msg) {{
       errEl.textContent = msg;
@@ -706,16 +750,93 @@ TEMPLATE = """<!doctype html>
         listEl.appendChild(li);
       }}
 
-      const changed = picked.join(",") !== original;
+      paintFlights();
+
+      const chosen = [...flights].sort();
+      const changed = picked.join(",") !== original
+        || chosen.join(",") !== originalFlights;
       applyEl.setAttribute("aria-disabled", String(!changed || !picked.length));
       applyEl.textContent = changed ? "Apply changes" : "No changes to apply";
 
-      // The issue body is the whole contract with the workflow: one fenced
-      // line of routes, which it validates again before writing anything.
-      const body = "Set tracked routes to:\\n\\n```\\n" + picked.join(",") + "\\n```\\n";
+      // The issue body is the whole contract with the workflow, which
+      // validates both lines again before writing anything.
+      const body = "```\\nroutes: " + picked.join(",")
+        + "\\nflights: " + chosen.join(",") + "\\n```\\n";
+      const title = "Set routes: " + picked.join(", ")
+        + (chosen.length ? ` (${{chosen.length}} flights)` : "");
       applyEl.href = `https://github.com/${{DATA.repo}}/issues/new`
-        + `?labels=set-routes&title=${{encodeURIComponent("Set routes: " + picked.join(", "))}}`
+        + `?labels=set-routes&title=${{encodeURIComponent(title)}}`
         + `&body=${{encodeURIComponent(body)}}`;
+    }}
+
+    function paintFlights() {{
+      flightsEl.textContent = "";
+      // Only offer flights on routes that are still in the list.
+      const usable = catalogue.filter(f => picked.includes(f.route));
+      if (!usable.length) {{
+        const p = document.createElement("p");
+        p.className = "flights-empty";
+        p.textContent = catalogue.length
+          ? "No flights logged yet for these routes."
+          : "Nothing logged yet — flights appear here after the next check.";
+        flightsEl.appendChild(p);
+        noteEl.hidden = true;
+        return;
+      }}
+      noteEl.hidden = false;
+
+      const groups = new Map();
+      for (const f of usable) {{
+        const key = `${{f.route}}|${{f.dir}}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(f);
+      }}
+
+      for (const [key, list] of groups) {{
+        const [route, dir] = key.split("|");
+        const [a, b] = route.split("-");
+        const wrap = document.createElement("div");
+        wrap.className = "flight-group";
+        const h = document.createElement("h4");
+        h.textContent = dir === "out" ? `${{a}} → ${{b}}` : `${{b}} → ${{a}}`;
+        wrap.appendChild(h);
+
+        const ul = document.createElement("ul");
+        ul.className = "flight-list";
+        list.sort((x, y) => (x.time || "").localeCompare(y.time || ""));
+        for (const f of list) {{
+          const li = document.createElement("li");
+          const label = document.createElement("label");
+
+          const box = document.createElement("input");
+          box.type = "checkbox";
+          box.checked = flights.has(f.flight_no.toUpperCase());
+          box.addEventListener("change", () => {{
+            const id = f.flight_no.toUpperCase();
+            if (box.checked) flights.add(id); else flights.delete(id);
+            paint();
+          }});
+
+          const time = document.createElement("span");
+          time.className = "fl-time";
+          time.textContent = f.time || "—";
+
+          const name = document.createElement("span");
+          name.className = "fl-name";
+          name.textContent = `${{f.flight_no}} · ${{f.airline || ""}}`.trim();
+
+          const price = document.createElement("span");
+          price.className = "fl-price";
+          price.textContent = typeof f.price === "number"
+            ? `from $${{Math.round(f.price)}}` : "";
+
+          label.append(box, time, name, price);
+          li.appendChild(label);
+          ul.appendChild(li);
+        }}
+        wrap.appendChild(ul);
+        flightsEl.appendChild(wrap);
+      }}
     }}
 
     formEl.addEventListener("submit", e => {{
@@ -737,6 +858,7 @@ TEMPLATE = """<!doctype html>
 
     document.getElementById("reset").addEventListener("click", () => {{
       picked = [...(DATA.tracked || [])];
+      flights = new Set(DATA.watching || []);
       paint();
     }});
 

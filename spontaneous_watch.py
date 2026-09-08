@@ -54,6 +54,12 @@ def parse_routes(raw):
 
 
 ROUTES_FILE = Path(os.environ.get("ROUTES_FILE", "routes.json"))
+# Flights the dashboard picker chose. Empty means "whatever is cheapest".
+FLIGHTS_FILE = Path(os.environ.get("FLIGHTS_FILE", "flights.json"))
+# Every flight seen, so the picker has something to offer. Machine-written.
+CATALOGUE_FILE = Path(os.environ.get("CATALOGUE_FILE", "catalogue.json"))
+# Drop catalogue entries not seen for this long, so retired flights age out.
+CATALOGUE_DAYS = int(os.environ.get("CATALOGUE_DAYS") or "30")
 
 
 def load_routes():
@@ -204,6 +210,22 @@ def one_way(origin, destination, day):
     return out
 
 
+def load_watchlist():
+    """Flight numbers the picker chose. Empty means take whatever is cheapest."""
+    try:
+        picked = json.loads(FLIGHTS_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        return set()
+    if isinstance(picked, dict):
+        picked = picked.get("flights")
+    if not isinstance(picked, list):
+        return set()
+    return {str(f).strip().upper() for f in picked if str(f).strip()}
+
+
+WATCHING = load_watchlist()
+
+
 def bookable(option):
     """Drop flights leaving too soon to actually get on."""
     if option["departs"] is None:
@@ -211,8 +233,15 @@ def bookable(option):
     return option["departs"] >= now() + timedelta(hours=MIN_LEAD_HOURS)
 
 
+def watched(option):
+    """With a watchlist set, only those flight numbers count."""
+    if not WATCHING:
+        return True
+    return option["flight_no"].strip().upper() in WATCHING
+
+
 def cheapest(options):
-    usable = [o for o in options if bookable(o)]
+    usable = [o for o in options if bookable(o) and watched(o)]
     return min(usable, key=lambda o: o["price"]) if usable else None
 
 
@@ -280,21 +309,31 @@ def format_trip(trip):
 
 # ---------------------------------------------------------------- main
 
-def search_route(home, away, start):
-    """Price every workable round trip on one route, cheapest first."""
+def search_route(home, away, start, seen):
+    """Price every workable round trip on one route, cheapest first.
+
+    Every option the API returns is added to `seen`, not just the winner, so
+    the dashboard picker has the full timetable to choose from.
+    """
     depart_days = [start + timedelta(days=i) for i in range(DEPART_AHEAD + 1)]
     return_days = [start + timedelta(days=i) for i in range(DEPART_AHEAD + MAX_NIGHTS + 1)]
 
+    def leg(origin, dest, day, direction):
+        options = one_way(origin, dest, day)
+        for opt in options:
+            catalogue_add(seen, f"{home}-{away}", direction, opt)
+        return cheapest(options)
+
     outbound = {}
     for day in depart_days:
-        best = cheapest(one_way(home, away, day))
+        best = leg(home, away, day, "out")
         if best:
             outbound[day] = best
             print(f"  {home}->{away} {day}: ${best['price']:.0f} at {best['departs_text']}")
 
     inbound = {}
     for day in return_days:
-        best = cheapest(one_way(away, home, day))
+        best = leg(away, home, day, "back")
         if best:
             inbound[day] = best
             print(f"  {away}->{home} {day}: ${best['price']:.0f} at {best['departs_text']}")
@@ -365,10 +404,14 @@ def main():
         print(f"warning: budget stops the run after {SEARCH_BUDGET} searches, "
               f"later routes will be skipped", file=sys.stderr)
 
+    if WATCHING:
+        print(f"only pricing {len(WATCHING)} picked flight(s)\n")
+
+    seen = {}
     for home, away in ROUTES:
         route_key = f"{home}-{away}"
         print(f"{route_key}:")
-        trips = search_route(home, away, start)
+        trips = search_route(home, away, start, seen)
         record_history(route_key, trips[0] if trips else None)
 
         if not trips:
@@ -380,7 +423,8 @@ def main():
             trips[0]["total"]
         alert_for_route(state, route_key, trips, start)
 
-    print(f"\n{searches_used} searches used")
+    catalogue = save_catalogue(seen)
+    print(f"\n{searches_used} searches used, {len(catalogue)} flights in catalogue")
     save(state)
 
 
@@ -388,6 +432,44 @@ def save(state):
     state["date"] = str(today())
     state["checked_at"] = now().strftime("%Y-%m-%d %H:%M")
     STATE_FILE.write_text(json.dumps(state, indent=2) + "\n")
+
+
+def catalogue_add(seen, route, direction, option):
+    """Remember one flight, keeping the cheapest price seen for it this run."""
+    key = f"{route}|{direction}|{option['flight_no']}"
+    existing = seen.get(key)
+    if existing and existing["price"] <= option["price"]:
+        return
+    seen[key] = {
+        "route": route,
+        "dir": direction,
+        "flight_no": option["flight_no"],
+        "airline": option["airline"],
+        "time": option["departs_text"],
+        "price": option["price"],
+        "seen": now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def save_catalogue(seen):
+    """Merge this run's flights into the catalogue, ageing out stale ones."""
+    try:
+        previous = json.loads(CATALOGUE_FILE.read_text())
+        if not isinstance(previous, list):
+            previous = []
+    except (OSError, json.JSONDecodeError):
+        previous = []
+
+    merged = {f"{e.get('route')}|{e.get('dir')}|{e.get('flight_no')}": e
+              for e in previous if e.get("flight_no")}
+    merged.update(seen)
+
+    cutoff = (now() - timedelta(days=CATALOGUE_DAYS)).strftime("%Y-%m-%d %H:%M")
+    fresh = [e for e in merged.values() if e.get("seen", "") >= cutoff]
+    fresh.sort(key=lambda e: (e["route"], e["dir"], e["time"]))
+
+    CATALOGUE_FILE.write_text(json.dumps(fresh, indent=2) + "\n")
+    return fresh
 
 
 def record_history(route_key, trip):

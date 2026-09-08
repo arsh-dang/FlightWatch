@@ -80,13 +80,24 @@ The dashboard is a static page, so it cannot write to the repo by itself.
 Rather than putting a GitHub token in the browser, the picker hands the change
 to GitHub and lets your own session authorise it:
 
-1. Open **Tracked flights** on the dashboard, add or remove routes.
-2. **Apply changes** opens a new issue, prefilled and labelled `set-routes`.
-3. Submitting it runs [`set-routes.yml`](.github/workflows/set-routes.yml),
-   which writes `routes.json`, closes the issue, and kicks off a check.
+1. Open **Tracked routes and flights** on the dashboard.
+2. Add or remove routes, then tick the individual flights you want priced.
+   Every flight the watcher has ever seen on those routes is listed with its
+   departure time, airline and cheapest price so far. Leave them all unticked
+   to take whatever is cheapest on the day.
+3. **Apply changes** opens a new issue, prefilled and labelled `set-routes`.
+4. Submitting it runs [`set-routes.yml`](.github/workflows/set-routes.yml),
+   which writes `routes.json` and `flights.json`, closes the issue, and kicks
+   off a check.
 
 `routes.json` is the source of truth once it exists; `ROUTES` is the fallback,
-then the `HOME_AIRPORT`/`AWAY_AIRPORT` pair.
+then the `HOME_AIRPORT`/`AWAY_AIRPORT` pair. `flights.json` narrows pricing to
+specific flight numbers; empty means no restriction.
+
+The flight list comes from `catalogue.json`, which the watcher rewrites every
+run: it now keeps *every* option the API returns rather than only the winner,
+so there is something to choose from. Flights not seen for `CATALOGUE_DAYS`
+age out, so retired services disappear on their own.
 
 Two guards, because the repo is public and anyone can file an issue:
 
@@ -123,6 +134,10 @@ secrets unless you add them back into the workflow's `env:` block).
 | `ROUTES` | *(from HOME/AWAY)* | Fallback route list when `routes.json` is absent, e.g. `AVV-SYD,MEL-BNE` |
 | `ROUTES_FILE` | `routes.json` | Routes chosen from the dashboard picker; takes precedence over `ROUTES` |
 | `MAX_ROUTES` | `6` | Most routes the picker workflow will accept in one change |
+| `FLIGHTS_FILE` | `flights.json` | Flight numbers picked from the dashboard. Empty = price whatever is cheapest |
+| `CATALOGUE_FILE` | `catalogue.json` | Every flight seen, rebuilt each run to populate the picker |
+| `CATALOGUE_DAYS` | `30` | Drop catalogue entries not seen in this many days |
+| `MAX_FLIGHTS` | `40` | Most flight numbers the picker workflow will accept |
 | `SEARCH_BUDGET` | `12` | Hard cap on API searches per run. The run stops rather than overspending |
 | `HOME_AIRPORT` | `AVV` | Departure airport, used when `ROUTES` is unset |
 | `AWAY_AIRPORT` | `SYD` | Destination airport, used when `ROUTES` is unset |
