@@ -13,6 +13,7 @@ from pathlib import Path
 
 HISTORY_FILE = Path(os.environ.get("HISTORY_FILE", "history.json"))
 STATE_FILE = Path(os.environ.get("STATE_FILE", "state.json"))
+ROUTES_FILE = Path(os.environ.get("ROUTES_FILE", "routes.json"))
 OUT_FILE = Path(os.environ.get("DASHBOARD_FILE", "docs/index.html"))
 
 HOME = os.environ.get("HOME_AIRPORT") or "AVV"
@@ -58,6 +59,23 @@ def summarise(history):
 
 def route_key(entry):
     return entry.get("route") or f"{HOME}-{AWAY}"
+
+
+def tracked_routes():
+    """What the watcher is currently set to check, for the picker's initial state."""
+    try:
+        picked = json.loads(ROUTES_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        picked = None
+    if isinstance(picked, dict):
+        picked = picked.get("routes")
+    if isinstance(picked, list) and picked:
+        return [str(r).upper() for r in picked]
+
+    env = (os.environ.get("ROUTES") or "").strip()
+    if env:
+        return [r.strip().upper() for r in env.split(",") if r.strip()]
+    return [f"{HOME}-{AWAY}"]
 
 
 def group_routes(history):
@@ -111,6 +129,8 @@ def render(history, state):
         "tiers": [{"value": v, "label": l} for v, l in TIERS],
         "routes": routes,
         "selected": selected,
+        "tracked": tracked_routes(),
+        "repo": os.environ.get("GITHUB_REPOSITORY", "arsh-dang/FlightWatch"),
     })
 
     if len(routes) > 1:
@@ -141,7 +161,7 @@ TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{route} fare watch</title>
+<title>Flight tracker · {route}</title>
 <link rel="icon" href="icon.svg">
 <style>
   :root {{
@@ -234,6 +254,45 @@ TEMPLATE = """<!doctype html>
   .route-tab .rt-name {{ display: block; font-weight: 600; }}
   .route-tab .rt-price {{ color: var(--text-secondary); font-variant-numeric: tabular-nums; }}
   .route-tab:focus-visible {{ outline: 2px solid var(--series); outline-offset: 2px; }}
+
+  .sr-only {{
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }}
+  .picker-note {{ color: var(--text-secondary); margin: 10px 0 14px; max-width: 60ch; }}
+  .picked {{ list-style: none; padding: 0; margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 8px; }}
+  .picked li {{
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border); border-radius: 999px; padding: 5px 6px 5px 13px;
+    font-variant-numeric: tabular-nums;
+  }}
+  .picked button {{
+    font: inherit; line-height: 1; cursor: pointer; color: var(--text-secondary);
+    background: none; border: 0; border-radius: 999px; padding: 4px 7px;
+  }}
+  .picked button:hover {{ background: var(--border); color: var(--text-primary); }}
+  .add-route {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
+  .add-route input {{
+    font: inherit; text-transform: uppercase; width: 5.5em;
+    background: var(--bg); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }}
+  .add-route button, .picker-actions .reset {{
+    font: inherit; cursor: pointer; background: var(--surface); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;
+  }}
+  .add-route button:hover, .picker-actions .reset:hover {{ border-color: var(--text-secondary); }}
+  .picker-error {{ color: var(--critical); margin: 10px 0 0; }}
+  .picker-actions {{ display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }}
+  .apply {{
+    background: var(--series); color: #fff; text-decoration: none;
+    border-radius: 8px; padding: 9px 16px; font-weight: 600;
+  }}
+  .apply[aria-disabled="true"] {{ opacity: 0.45; pointer-events: none; }}
+  .add-route input:focus-visible, .add-route button:focus-visible,
+  .apply:focus-visible, .picker-actions .reset:focus-visible, .picked button:focus-visible {{
+    outline: 2px solid var(--series); outline-offset: 2px;
+  }}
   .hero-note {{ color: var(--text-secondary); margin: 10px 0 0; }}
 
   .badge {{
@@ -311,8 +370,8 @@ TEMPLATE = """<!doctype html>
   <header>
     <img class="mark" src="icon.svg" alt="" width="38" height="38">
     <div>
-      <h1>{route} fare watch</h1>
-      <p class="sub">Cheapest bookable round trip, checked twice daily</p>
+      <h1>Flight tracker</h1>
+      <p class="sub">{route} · cheapest bookable round trip, checked twice daily</p>
     </div>
   </header>
 
@@ -360,6 +419,33 @@ TEMPLATE = """<!doctype html>
     </details>
   </section>
 
+  <section class="card">
+    <details id="picker-wrap">
+      <summary>Tracked flights — add or remove routes</summary>
+      <p class="picker-note">
+        Changes are applied by opening a prefilled issue on the repo. Submitting
+        it runs a workflow that saves the list and starts the next check. No
+        token is stored in your browser.
+      </p>
+      <ul class="picked" id="picked"></ul>
+      <form class="add-route" id="add-route">
+        <label class="sr-only" for="from">Origin airport code</label>
+        <input id="from" name="from" placeholder="AVV" maxlength="3"
+               pattern="[A-Za-z]{{3}}" required autocomplete="off" size="4">
+        <span aria-hidden="true">→</span>
+        <label class="sr-only" for="to">Destination airport code</label>
+        <input id="to" name="to" placeholder="SYD" maxlength="3"
+               pattern="[A-Za-z]{{3}}" required autocomplete="off" size="4">
+        <button type="submit">Add route</button>
+      </form>
+      <p class="picker-error" id="picker-error" role="alert" hidden></p>
+      <div class="picker-actions">
+        <a class="apply" id="apply" href="#" target="_blank" rel="noopener">Apply changes</a>
+        <button type="button" class="reset" id="reset">Reset</button>
+      </div>
+    </details>
+  </section>
+
   <footer>Generated {generated} · data from SerpApi Google Flights</footer>
 </div>
 
@@ -375,6 +461,7 @@ TEMPLATE = """<!doctype html>
   const ns = "http://www.w3.org/2000/svg";
 
   buildRouteTabs();
+  setupPicker();
   select(DATA.selected);
 
   function select(key) {{
@@ -581,6 +668,81 @@ TEMPLATE = """<!doctype html>
     const d = new Date(stamp.replace(" ", "T"));
     return isNaN(d) ? stamp : d.toLocaleDateString(undefined, {{ day: "numeric", month: "short" }});
   }}
+  function setupPicker() {{
+    const listEl = document.getElementById("picked");
+    const formEl = document.getElementById("add-route");
+    const errEl = document.getElementById("picker-error");
+    const applyEl = document.getElementById("apply");
+    const fromEl = document.getElementById("from");
+    const toEl = document.getElementById("to");
+    const original = (DATA.tracked || []).join(",");
+    let picked = [...(DATA.tracked || [])];
+
+    function fail(msg) {{
+      errEl.textContent = msg;
+      errEl.hidden = false;
+    }}
+
+    function paint() {{
+      errEl.hidden = true;
+      listEl.textContent = "";
+      if (!picked.length) {{
+        const li = document.createElement("li");
+        li.textContent = "No routes — add one below";
+        listEl.appendChild(li);
+      }}
+      for (const key of picked) {{
+        const li = document.createElement("li");
+        li.appendChild(document.createTextNode(key.replace("-", " → ")));
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.textContent = "✕";
+        rm.setAttribute("aria-label", `Stop tracking ${{key.replace("-", " to ")}}`);
+        rm.addEventListener("click", () => {{
+          picked = picked.filter(k => k !== key);
+          paint();
+        }});
+        li.appendChild(rm);
+        listEl.appendChild(li);
+      }}
+
+      const changed = picked.join(",") !== original;
+      applyEl.setAttribute("aria-disabled", String(!changed || !picked.length));
+      applyEl.textContent = changed ? "Apply changes" : "No changes to apply";
+
+      // The issue body is the whole contract with the workflow: one fenced
+      // line of routes, which it validates again before writing anything.
+      const body = "Set tracked routes to:\\n\\n```\\n" + picked.join(",") + "\\n```\\n";
+      applyEl.href = `https://github.com/${{DATA.repo}}/issues/new`
+        + `?labels=set-routes&title=${{encodeURIComponent("Set routes: " + picked.join(", "))}}`
+        + `&body=${{encodeURIComponent(body)}}`;
+    }}
+
+    formEl.addEventListener("submit", e => {{
+      e.preventDefault();
+      const a = fromEl.value.trim().toUpperCase();
+      const b = toEl.value.trim().toUpperCase();
+      if (!/^[A-Z]{{3}}$/.test(a) || !/^[A-Z]{{3}}$/.test(b)) {{
+        return fail("Airport codes are three letters, like AVV.");
+      }}
+      if (a === b) return fail("Origin and destination must differ.");
+      const key = `${{a}}-${{b}}`;
+      if (picked.includes(key)) return fail(`${{a}} → ${{b}} is already tracked.`);
+      picked.push(key);
+      fromEl.value = "";
+      toEl.value = "";
+      fromEl.focus();
+      paint();
+    }});
+
+    document.getElementById("reset").addEventListener("click", () => {{
+      picked = [...(DATA.tracked || [])];
+      paint();
+    }});
+
+    paint();
+  }}
+
   function buildRouteTabs() {{
     if (routes.length < 2) return;
     tabsEl.hidden = false;

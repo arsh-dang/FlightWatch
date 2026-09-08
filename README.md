@@ -1,19 +1,20 @@
 <img src="icon.svg" alt="" width="72" align="left" hspace="14" vspace="4">
 
-# AVV to SYD fare watch
+# Flight tracker
 
 **[Live dashboard →](https://arsh-dang.github.io/FlightWatch/)**
 
 <br clear="left">
 
-Rolling watch for spontaneous short-notice trips. No fixed dates — every run
-checks leaving today or tomorrow, coming back any day up to a few nights out,
-and prices every workable combination. Twice a day it pushes your phone the
-moment the cheapest combo drops under budget, with priority escalating the
-better the deal.
+Tracks spontaneous short-notice trips. No fixed dates — every run checks
+leaving today or tomorrow, coming back any day up to a few nights out, and
+prices every workable combination. Twice a day it pushes your phone the moment
+the cheapest combo drops under budget, with priority escalating the better the
+deal.
 
-Watch as many routes as you like (`ROUTES=AVV-SYD,MEL-BNE`); each is priced
-and alerted on its own, and the dashboard gets a tab per route.
+Which flights get tracked is chosen **on the dashboard**: add or remove routes
+in the picker, hit Apply, and submit the issue it opens for you. Each route is
+priced and alerted on its own, and gets its own tab on the dashboard.
 
 ## Setup, about ten minutes
 
@@ -73,6 +74,27 @@ cp .env.example .env
 Actions tab, pick "Flight watch", then "Run workflow". Check the log output and
 confirm the push lands on your phone.
 
+## Choosing which flights to track
+
+The dashboard is a static page, so it cannot write to the repo by itself.
+Rather than putting a GitHub token in the browser, the picker hands the change
+to GitHub and lets your own session authorise it:
+
+1. Open **Tracked flights** on the dashboard, add or remove routes.
+2. **Apply changes** opens a new issue, prefilled and labelled `set-routes`.
+3. Submitting it runs [`set-routes.yml`](.github/workflows/set-routes.yml),
+   which writes `routes.json`, closes the issue, and kicks off a check.
+
+`routes.json` is the source of truth once it exists; `ROUTES` is the fallback,
+then the `HOME_AIRPORT`/`AWAY_AIRPORT` pair.
+
+Two guards, because the repo is public and anyone can file an issue:
+
+- the workflow ignores issues not opened by the repo owner, so no one else can
+  redirect what your API credit is spent on;
+- `apply_routes.py` accepts only `ORIGIN-DEST` codes of three letters, capped
+  at `MAX_ROUTES`, and fails the run on anything else rather than guessing.
+
 ## Dashboard
 
 Every run appends its result to `history.json` and regenerates
@@ -98,7 +120,9 @@ secrets unless you add them back into the workflow's `env:` block).
 
 | Variable | Default | Does what |
 |---|---|---|
-| `ROUTES` | *(from HOME/AWAY)* | Routes to watch, e.g. `AVV-SYD,MEL-BNE,AVV-OOL`. Each is priced and alerted independently |
+| `ROUTES` | *(from HOME/AWAY)* | Fallback route list when `routes.json` is absent, e.g. `AVV-SYD,MEL-BNE` |
+| `ROUTES_FILE` | `routes.json` | Routes chosen from the dashboard picker; takes precedence over `ROUTES` |
+| `MAX_ROUTES` | `6` | Most routes the picker workflow will accept in one change |
 | `SEARCH_BUDGET` | `12` | Hard cap on API searches per run. The run stops rather than overspending |
 | `HOME_AIRPORT` | `AVV` | Departure airport, used when `ROUTES` is unset |
 | `AWAY_AIRPORT` | `SYD` | Destination airport, used when `ROUTES` is unset |

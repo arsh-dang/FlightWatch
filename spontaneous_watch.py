@@ -53,9 +53,29 @@ def parse_routes(raw):
     return routes
 
 
-# Watch several routes by setting ROUTES=AVV-SYD,MEL-BNE. Defaults to the
-# single HOME_AIRPORT/AWAY_AIRPORT pair.
-ROUTES = parse_routes(os.environ.get("ROUTES") or f"{HOME}-{AWAY}")
+ROUTES_FILE = Path(os.environ.get("ROUTES_FILE", "routes.json"))
+
+
+def load_routes():
+    """routes.json wins, then ROUTES, then the HOME/AWAY pair.
+
+    routes.json is what the dashboard picker edits, so it is the source of
+    truth whenever it exists.
+    """
+    try:
+        picked = json.loads(ROUTES_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        picked = None
+
+    if isinstance(picked, dict):
+        picked = picked.get("routes")
+    if isinstance(picked, list) and picked:
+        return parse_routes(",".join(str(r) for r in picked))
+
+    return parse_routes(os.environ.get("ROUTES") or f"{HOME}-{AWAY}")
+
+
+ROUTES = load_routes()
 
 _tz_env = (os.environ.get("TIMEZONE") or "").strip()
 if _tz_env:

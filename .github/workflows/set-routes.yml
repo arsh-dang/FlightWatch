@@ -1,0 +1,59 @@
+name: Set routes
+
+# The dashboard's picker links here with a prefilled issue. Submitting it is
+# what authenticates the change — the browser never holds a token.
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  apply:
+    # The repo is public, so anyone can open an issue. Only the owner's may
+    # change what this account spends API credit on.
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      contains(github.event.issue.labels.*.name, 'set-routes')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse routes from the issue
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python3 apply_routes.py
+
+      - name: Commit routes.json
+        env:
+          ROUTES: ${{ steps.parse.outputs.routes }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add routes.json
+          if ! git diff --staged --quiet; then
+            git commit -m "Track $ROUTES"
+            git pull --rebase
+            git push
+          else
+            echo "Routes unchanged"
+          fi
+
+      - name: Close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROUTES: ${{ steps.parse.outputs.routes }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue comment "$NUMBER" \
+            --body "Now tracking \`$ROUTES\`. The next check will use it."
+          gh issue close "$NUMBER"
+
+      - name: Run the watch straight away
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run flight-watch.yml
