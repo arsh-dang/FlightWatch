@@ -289,11 +289,11 @@
       <ul class="picked" id="picked"></ul>
       <form class="add-route" id="add-route">
         <label class="sr-only" for="from">Origin airport code</label>
-        <input id="from" name="from" placeholder="AVV" maxlength="3"
+        <input id="from" name="from" placeholder="From" maxlength="3"
                pattern="[A-Za-z]{3}" required autocomplete="off" size="4">
         <span aria-hidden="true">→</span>
         <label class="sr-only" for="to">Destination airport code</label>
-        <input id="to" name="to" placeholder="SYD" maxlength="3"
+        <input id="to" name="to" placeholder="To" maxlength="3"
                pattern="[A-Za-z]{3}" required autocomplete="off" size="4">
         <button type="submit">Add route</button>
       </form>
@@ -313,7 +313,7 @@
     </details>
   </section>
 
-  <footer>Generated 2026-09-08 21:14 · data from SerpApi Google Flights</footer>
+  <footer>Generated 2026-09-08 21:18 · data from SerpApi Google Flights</footer>
 </div>
 
 <script id="data" type="application/json">{"history": [{"checked_at": "2026-09-08 20:26", "route": "AVV-SYD", "total": 313.0, "out_day": "2026-09-09", "out_time": "14:55", "out_price": 110.0, "out_airline": "Jetstar", "back_day": "2026-09-11", "back_time": "12:35", "back_price": 203.0, "back_airline": "Jetstar", "nights": 2}, {"checked_at": "2026-09-08 20:43", "route": "AVV-SYD", "total": 313.0, "out_day": "2026-09-09", "out_time": "14:55", "out_price": 110.0, "out_airline": "Jetstar", "back_day": "2026-09-11", "back_time": "12:35", "back_price": 203.0, "back_airline": "Jetstar", "nights": 2}], "tiers": [{"value": 100.0, "label": "Drop everything"}, {"value": 150.0, "label": "Very good"}, {"value": 200.0, "label": "Under budget"}], "routes": [{"key": "AVV-SYD", "label": "AVV \u2192 SYD", "current": 313.0, "low": 313.0, "runs": 2}], "selected": "AVV-SYD", "tracked": ["AVV-SYD"], "catalogue": [], "watching": [], "repo": "arsh-dang/FlightWatch"}</script>
@@ -672,7 +672,7 @@
       const a = fromEl.value.trim().toUpperCase();
       const b = toEl.value.trim().toUpperCase();
       if (!/^[A-Z]{3}$/.test(a) || !/^[A-Z]{3}$/.test(b)) {
-        return fail("Airport codes are three letters, like AVV.");
+        return fail("Airport codes are three letters, like the IATA code on a boarding pass.");
       }
       if (a === b) return fail("Origin and destination must differ.");
       const key = `${a}-${b}`;

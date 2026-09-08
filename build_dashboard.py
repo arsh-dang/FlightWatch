@@ -18,9 +18,6 @@ FLIGHTS_FILE = Path(os.environ.get("FLIGHTS_FILE", "flights.json"))
 CATALOGUE_FILE = Path(os.environ.get("CATALOGUE_FILE", "catalogue.json"))
 OUT_FILE = Path(os.environ.get("DASHBOARD_FILE", "docs/index.html"))
 
-HOME = os.environ.get("HOME_AIRPORT") or "AVV"
-AWAY = os.environ.get("AWAY_AIRPORT") or "SYD"
-
 # Mirrors TIERS in spontaneous_watch.py. Drawn as reference lines on the chart.
 TIERS = [
     (100.0, "Drop everything"),
@@ -60,11 +57,15 @@ def summarise(history):
 
 
 def route_key(entry):
-    return entry.get("route") or f"{HOME}-{AWAY}"
+    return entry.get("route") or "unknown"
 
 
 def tracked_routes():
-    """What the watcher is currently set to check, for the picker's initial state."""
+    """What the watcher is currently set to check, for the picker's initial state.
+
+    Reports nothing rather than inventing a route: the dashboard describes
+    whatever is configured, and has no opinion about which airports those are.
+    """
     try:
         picked = json.loads(ROUTES_FILE.read_text())
     except (OSError, json.JSONDecodeError):
@@ -77,7 +78,7 @@ def tracked_routes():
     env = (os.environ.get("ROUTES") or "").strip()
     if env:
         return [r.strip().upper() for r in env.split(",") if r.strip()]
-    return [f"{HOME}-{AWAY}"]
+    return []
 
 
 def watched_flights():
@@ -115,7 +116,8 @@ def group_routes(history):
 
 def render(history, state):
     routes = group_routes(history)
-    selected = routes[0]["key"] if routes else f"{HOME}-{AWAY}"
+    tracked = tracked_routes()
+    selected = routes[0]["key"] if routes else ""
     facts = summarise([e for e in history if route_key(e) == selected])
     latest, cheapest = facts["latest"], facts["cheapest"]
 
@@ -141,21 +143,32 @@ def render(history, state):
         "tiers": [{"value": v, "label": l} for v, l in TIERS],
         "routes": routes,
         "selected": selected,
-        "tracked": tracked_routes(),
+        "tracked": tracked,
         "catalogue": load_json(CATALOGUE_FILE, []),
         "watching": watched_flights(),
         "repo": os.environ.get("GITHUB_REPOSITORY", "arsh-dang/FlightWatch"),
     })
 
-    if len(routes) > 1:
-        title = f"{len(routes)} routes"
-    elif routes:
-        title = routes[0]["label"]
+    # Describe what is configured, preferring the tracked list over whatever
+    # happens to be in history — they diverge when a route is added or dropped.
+    named = tracked or [r["key"] for r in routes]
+    if len(named) > 1:
+        route_name = f"{len(named)} routes"
+    elif named:
+        route_name = named[0].replace("-", " → ")
     else:
-        title = f"{HOME} → {AWAY}"
+        route_name = ""
+
+    if route_name:
+        doc_title = f"Flight tracker · {route_name}"
+        subtitle = f"{route_name} · cheapest bookable round trip, checked twice daily"
+    else:
+        doc_title = "Flight tracker"
+        subtitle = "No routes tracked yet — add one below to start checking"
 
     return TEMPLATE.format(
-        route=title,
+        doc_title=doc_title,
+        subtitle=subtitle,
         hero=hero,
         headline=headline,
         tier_class=tier_class,
@@ -175,7 +188,7 @@ TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Flight tracker · {route}</title>
+<title>{doc_title}</title>
 <link rel="icon" href="icon.svg">
 <style>
   :root {{
@@ -402,7 +415,7 @@ TEMPLATE = """<!doctype html>
     <img class="mark" src="icon.svg" alt="" width="38" height="38">
     <div>
       <h1>Flight tracker</h1>
-      <p class="sub">{route} · cheapest bookable round trip, checked twice daily</p>
+      <p class="sub">{subtitle}</p>
     </div>
   </header>
 
@@ -461,11 +474,11 @@ TEMPLATE = """<!doctype html>
       <ul class="picked" id="picked"></ul>
       <form class="add-route" id="add-route">
         <label class="sr-only" for="from">Origin airport code</label>
-        <input id="from" name="from" placeholder="AVV" maxlength="3"
+        <input id="from" name="from" placeholder="From" maxlength="3"
                pattern="[A-Za-z]{{3}}" required autocomplete="off" size="4">
         <span aria-hidden="true">→</span>
         <label class="sr-only" for="to">Destination airport code</label>
-        <input id="to" name="to" placeholder="SYD" maxlength="3"
+        <input id="to" name="to" placeholder="To" maxlength="3"
                pattern="[A-Za-z]{{3}}" required autocomplete="off" size="4">
         <button type="submit">Add route</button>
       </form>
@@ -844,7 +857,7 @@ TEMPLATE = """<!doctype html>
       const a = fromEl.value.trim().toUpperCase();
       const b = toEl.value.trim().toUpperCase();
       if (!/^[A-Z]{{3}}$/.test(a) || !/^[A-Z]{{3}}$/.test(b)) {{
-        return fail("Airport codes are three letters, like AVV.");
+        return fail("Airport codes are three letters, like the IATA code on a boarding pass.");
       }}
       if (a === b) return fail("Origin and destination must differ.");
       const key = `${{a}}-${{b}}`;
