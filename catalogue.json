@@ -6,7 +6,7 @@
     "airline": "Jetstar",
     "time": "08:10",
     "price": 152.0,
-    "seen": "2026-09-09 10:10"
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -15,7 +15,7 @@
     "airline": "Jetstar",
     "time": "12:35",
     "price": 136.0,
-    "seen": "2026-09-09 10:10"
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -23,8 +23,8 @@
     "flight_no": "JQ 609",
     "airline": "Jetstar",
     "time": "14:30",
-    "price": 122.0,
-    "seen": "2026-09-09 10:10"
+    "price": 136.0,
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -32,8 +32,8 @@
     "flight_no": "JQ 611",
     "airline": "Jetstar",
     "time": "18:45",
-    "price": 244.0,
-    "seen": "2026-09-09 10:10"
+    "price": 203.0,
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -41,8 +41,8 @@
     "flight_no": "JQ 613",
     "airline": "Jetstar",
     "time": "21:20",
-    "price": 122.0,
-    "seen": "2026-09-09 10:10"
+    "price": 110.0,
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -51,7 +51,7 @@
     "airline": "Jetstar",
     "time": "06:00",
     "price": 136.0,
-    "seen": "2026-09-09 10:10"
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -59,8 +59,8 @@
     "flight_no": "JQ 606",
     "airline": "Jetstar",
     "time": "10:30",
-    "price": 152.0,
-    "seen": "2026-09-09 10:10"
+    "price": 136.0,
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -68,8 +68,8 @@
     "flight_no": "JQ 608",
     "airline": "Jetstar",
     "time": "14:55",
-    "price": 122.0,
-    "seen": "2026-09-09 10:09"
+    "price": 152.0,
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -77,8 +77,8 @@
     "flight_no": "JQ 610",
     "airline": "Jetstar",
     "time": "16:40",
-    "price": 110.0,
-    "seen": "2026-09-09 10:09"
+    "price": 152.0,
+    "seen": "2026-09-10 00:32"
   },
   {
     "route": "AVV-SYD",
@@ -86,7 +86,7 @@
     "flight_no": "JQ 612",
     "airline": "Jetstar",
     "time": "20:55",
-    "price": 110.0,
-    "seen": "2026-09-09 10:09"
+    "price": 152.0,
+    "seen": "2026-09-10 00:32"
   }
 ]
