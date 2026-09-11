@@ -6,7 +6,7 @@
     "airline": "Jetstar",
     "time": "08:10",
     "price": 136.0,
-    "seen": "2026-09-11 00:23"
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -15,7 +15,7 @@
     "airline": "Jetstar",
     "time": "12:35",
     "price": 136.0,
-    "seen": "2026-09-11 00:23"
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -23,8 +23,8 @@
     "flight_no": "JQ 609",
     "airline": "Jetstar",
     "time": "14:30",
-    "price": 136.0,
-    "seen": "2026-09-11 00:23"
+    "price": 122.0,
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -32,8 +32,8 @@
     "flight_no": "JQ 611",
     "airline": "Jetstar",
     "time": "18:45",
-    "price": 136.0,
-    "seen": "2026-09-11 00:23"
+    "price": 122.0,
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -41,8 +41,8 @@
     "flight_no": "JQ 613",
     "airline": "Jetstar",
     "time": "21:20",
-    "price": 122.0,
-    "seen": "2026-09-11 00:23"
+    "price": 110.0,
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -50,8 +50,8 @@
     "flight_no": "JQ 602",
     "airline": "Jetstar",
     "time": "06:00",
-    "price": 244.0,
-    "seen": "2026-09-11 00:23"
+    "price": 418.0,
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -59,8 +59,8 @@
     "flight_no": "JQ 606",
     "airline": "Jetstar",
     "time": "10:30",
-    "price": 244.0,
-    "seen": "2026-09-11 00:23"
+    "price": 509.0,
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -69,7 +69,7 @@
     "airline": "Jetstar",
     "time": "14:55",
     "price": 295.0,
-    "seen": "2026-09-11 00:23"
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -78,7 +78,7 @@
     "airline": "Jetstar",
     "time": "16:40",
     "price": 418.0,
-    "seen": "2026-09-11 00:23"
+    "seen": "2026-09-11 10:06"
   },
   {
     "route": "AVV-SYD",
@@ -86,7 +86,7 @@
     "flight_no": "JQ 612",
     "airline": "Jetstar",
     "time": "20:55",
-    "price": 509.0,
-    "seen": "2026-09-11 00:23"
+    "price": 418.0,
+    "seen": "2026-09-11 10:06"
   }
 ]
