@@ -5,8 +5,8 @@
     "flight_no": "JQ 603",
     "airline": "Jetstar",
     "time": "08:10",
-    "price": 98.0,
-    "seen": "2026-09-14 10:08"
+    "price": 110.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -14,8 +14,8 @@
     "flight_no": "JQ 607",
     "airline": "Jetstar",
     "time": "12:35",
-    "price": 98.0,
-    "seen": "2026-09-14 10:08"
+    "price": 110.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -23,8 +23,8 @@
     "flight_no": "JQ 609",
     "airline": "Jetstar",
     "time": "14:30",
-    "price": 98.0,
-    "seen": "2026-09-14 10:08"
+    "price": 110.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -32,8 +32,8 @@
     "flight_no": "JQ 611",
     "airline": "Jetstar",
     "time": "18:45",
-    "price": 136.0,
-    "seen": "2026-09-14 10:08"
+    "price": 203.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -41,8 +41,8 @@
     "flight_no": "JQ 613",
     "airline": "Jetstar",
     "time": "21:20",
-    "price": 110.0,
-    "seen": "2026-09-14 10:08"
+    "price": 122.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -50,8 +50,8 @@
     "flight_no": "JQ 602",
     "airline": "Jetstar",
     "time": "06:00",
-    "price": 611.0,
-    "seen": "2026-09-14 00:19"
+    "price": 295.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -60,7 +60,7 @@
     "airline": "Jetstar",
     "time": "10:30",
     "price": 244.0,
-    "seen": "2026-09-14 10:08"
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -68,8 +68,8 @@
     "flight_no": "JQ 608",
     "airline": "Jetstar",
     "time": "14:55",
-    "price": 173.0,
-    "seen": "2026-09-14 10:08"
+    "price": 244.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
@@ -77,8 +77,8 @@
     "flight_no": "JQ 610",
     "airline": "Jetstar",
     "time": "16:40",
-    "price": 173.0,
-    "seen": "2026-09-14 10:08"
+    "price": 203.0,
+    "seen": "2026-09-15 02:21"
   },
   {
     "route": "AVV-SYD",
