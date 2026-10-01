@@ -611,5 +611,10 @@
     "checked_at": "2026-10-01 11:16",
     "route": "AVV-SYD",
     "total": null
+  },
+  {
+    "checked_at": "2026-10-02 03:00",
+    "route": "AVV-SYD",
+    "total": null
   }
 ]
