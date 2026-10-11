@@ -783,5 +783,19 @@
     "back_price": 110.0,
     "back_airline": "Jetstar",
     "nights": 1
+  },
+  {
+    "checked_at": "2026-10-12 03:18",
+    "route": "AVV-SYD",
+    "total": 417.0,
+    "out_day": "2026-10-13",
+    "out_time": "14:55",
+    "out_price": 295.0,
+    "out_airline": "Jetstar",
+    "back_day": "2026-10-14",
+    "back_time": "08:10",
+    "back_price": 122.0,
+    "back_airline": "Jetstar",
+    "nights": 1
   }
 ]
