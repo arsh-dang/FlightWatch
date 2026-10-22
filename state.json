@@ -1,10 +1,10 @@
 {
-  "date": "2026-10-22",
+  "date": "2026-10-23",
   "last_seen": 313.0,
-  "checked_at": "2026-10-22 11:39",
+  "checked_at": "2026-10-23 02:12",
   "routes": {
     "AVV-SYD": {
-      "last_seen": 447.0
+      "last_seen": 488.0
     }
   }
 }
