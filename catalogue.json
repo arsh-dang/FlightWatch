@@ -15,7 +15,7 @@
     "airline": "Jetstar",
     "time": "08:10",
     "price": 183.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -24,7 +24,7 @@
     "airline": "Jetstar",
     "time": "12:30",
     "price": 183.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -42,7 +42,7 @@
     "airline": "Jetstar",
     "time": "14:00",
     "price": 183.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -51,7 +51,7 @@
     "airline": "Jetstar",
     "time": "18:45",
     "price": 275.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -60,7 +60,7 @@
     "airline": "Jetstar",
     "time": "21:45",
     "price": 224.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -68,8 +68,8 @@
     "flight_no": "JQ 602",
     "airline": "Jetstar",
     "time": "06:00",
-    "price": 407.0,
-    "seen": "2026-10-28 02:51"
+    "price": 611.0,
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -78,7 +78,7 @@
     "airline": "Jetstar",
     "time": "10:20",
     "price": 509.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -96,7 +96,7 @@
     "airline": "Jetstar",
     "time": "11:40",
     "price": 611.0,
-    "seen": "2026-10-28 02:51"
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
@@ -104,8 +104,8 @@
     "flight_no": "JQ 610",
     "airline": "Jetstar",
     "time": "14:50",
-    "price": 509.0,
-    "seen": "2026-10-28 02:51"
+    "price": 611.0,
+    "seen": "2026-10-28 12:16"
   },
   {
     "route": "AVV-SYD",
