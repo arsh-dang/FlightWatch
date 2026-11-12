@@ -14,8 +14,8 @@
     "flight_no": "JQ 605",
     "airline": "Jetstar",
     "time": "08:10",
-    "price": 203.0,
-    "seen": "2026-11-12 04:51"
+    "price": 244.0,
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -24,7 +24,7 @@
     "airline": "Jetstar",
     "time": "12:30",
     "price": 275.0,
-    "seen": "2026-11-12 04:51"
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -42,7 +42,7 @@
     "airline": "Jetstar",
     "time": "14:00",
     "price": 351.0,
-    "seen": "2026-11-12 04:51"
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -50,8 +50,8 @@
     "flight_no": "JQ 611",
     "airline": "Jetstar",
     "time": "18:45",
-    "price": 295.0,
-    "seen": "2026-11-12 04:51"
+    "price": 336.0,
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -60,7 +60,7 @@
     "airline": "Jetstar",
     "time": "21:45",
     "price": 295.0,
-    "seen": "2026-11-12 04:51"
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -68,8 +68,8 @@
     "flight_no": "JQ 602",
     "airline": "Jetstar",
     "time": "06:00",
-    "price": 336.0,
-    "seen": "2026-11-12 04:51"
+    "price": 407.0,
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -77,8 +77,8 @@
     "flight_no": "JQ 608",
     "airline": "Jetstar",
     "time": "10:20",
-    "price": 336.0,
-    "seen": "2026-11-12 04:51"
+    "price": 407.0,
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -96,7 +96,7 @@
     "airline": "Jetstar",
     "time": "11:40",
     "price": 336.0,
-    "seen": "2026-11-12 04:51"
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -105,7 +105,7 @@
     "airline": "Jetstar",
     "time": "14:50",
     "price": 336.0,
-    "seen": "2026-11-12 04:51"
+    "seen": "2026-11-12 13:55"
   },
   {
     "route": "AVV-SYD",
@@ -113,7 +113,7 @@
     "flight_no": "JQ 612",
     "airline": "Jetstar",
     "time": "20:55",
-    "price": 336.0,
-    "seen": "2026-11-12 04:51"
+    "price": 275.0,
+    "seen": "2026-11-12 13:55"
   }
 ]
