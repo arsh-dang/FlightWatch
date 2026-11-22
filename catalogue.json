@@ -2,20 +2,11 @@
   {
     "route": "AVV-SYD",
     "dir": "back",
-    "flight_no": "JQ 603",
-    "airline": "Jetstar",
-    "time": "08:10",
-    "price": 351.0,
-    "seen": "2026-10-24 02:00"
-  },
-  {
-    "route": "AVV-SYD",
-    "dir": "back",
     "flight_no": "JQ 605",
     "airline": "Jetstar",
     "time": "08:10",
-    "price": 244.0,
-    "seen": "2026-11-22 13:10"
+    "price": 295.0,
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -24,16 +15,7 @@
     "airline": "Jetstar",
     "time": "12:30",
     "price": 295.0,
-    "seen": "2026-11-22 13:10"
-  },
-  {
-    "route": "AVV-SYD",
-    "dir": "back",
-    "flight_no": "JQ 607",
-    "airline": "Jetstar",
-    "time": "12:35",
-    "price": 295.0,
-    "seen": "2026-10-24 02:00"
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -42,7 +24,7 @@
     "airline": "Jetstar",
     "time": "14:00",
     "price": 295.0,
-    "seen": "2026-11-22 13:10"
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -60,7 +42,7 @@
     "airline": "Jetstar",
     "time": "21:45",
     "price": 295.0,
-    "seen": "2026-11-22 13:10"
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -69,7 +51,7 @@
     "airline": "Jetstar",
     "time": "06:00",
     "price": 351.0,
-    "seen": "2026-11-22 13:10"
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -77,17 +59,8 @@
     "flight_no": "JQ 608",
     "airline": "Jetstar",
     "time": "10:20",
-    "price": 351.0,
-    "seen": "2026-11-22 13:10"
-  },
-  {
-    "route": "AVV-SYD",
-    "dir": "out",
-    "flight_no": "JQ 606",
-    "airline": "Jetstar",
-    "time": "10:30",
-    "price": 351.0,
-    "seen": "2026-10-24 02:00"
+    "price": 295.0,
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -96,7 +69,7 @@
     "airline": "Jetstar",
     "time": "11:40",
     "price": 295.0,
-    "seen": "2026-11-22 13:10"
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
@@ -105,7 +78,7 @@
     "airline": "Jetstar",
     "time": "14:50",
     "price": 295.0,
-    "seen": "2026-11-22 13:10"
+    "seen": "2026-11-23 04:47"
   },
   {
     "route": "AVV-SYD",
